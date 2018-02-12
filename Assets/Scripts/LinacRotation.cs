@@ -44,6 +44,11 @@ public class LinacRotation : MonoBehaviour {
     }
   }
   
-  
+  public void Rotate(float amount) {    
+    if (angle - amount != 0) {
+      this.transform.Rotate((angle - amount) * rotation);
+      angle = amount;
+    }
+  }
   
 }

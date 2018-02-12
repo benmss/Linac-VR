@@ -673,6 +673,7 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		private void ShowPointer( Hand newPointerHand, Hand oldPointerHand )
 		{
+      if (newPointerHand.startingHandType == Hand.HandType.Left) { return; }
 			if ( !visible )
 			{
 				pointedAtTeleportMarker = null;
@@ -795,11 +796,11 @@ namespace Valve.VR.InteractionSystem
 			{
 				if ( validLocation )
 				{
-					pointerHand.controller.TriggerHapticPulse( 800 );
+					// pointerHand.controller.TriggerHapticPulse( 800 );
 				}
 				else
 				{
-					pointerHand.controller.TriggerHapticPulse( 100 );
+					// pointerHand.controller.TriggerHapticPulse( 100 );
 				}
 			}
 		}
@@ -978,6 +979,7 @@ namespace Valve.VR.InteractionSystem
 				//Show the hint on each eligible hand
 				foreach ( Hand hand in player.hands )
 				{
+          if (hand.startingHandType == Hand.HandType.Left) { continue; }
 					bool showHint = IsEligibleForTeleport( hand );
 					bool isShowingHint = !string.IsNullOrEmpty( ControllerButtonHints.GetActiveHintText( hand, EVRButtonId.k_EButton_SteamVR_Touchpad ) );
 					if ( showHint )
@@ -994,7 +996,7 @@ namespace Valve.VR.InteractionSystem
 							//Haptic pulse for a few seconds
 							pulsed = true;
 
-							hand.controller.TriggerHapticPulse( 500 );
+							// hand.controller.TriggerHapticPulse( 500 );
 						}
 					}
 					else if ( !showHint && isShowingHint )
