@@ -89,19 +89,8 @@ namespace Valve.VR.InteractionSystem {
             upCounter = changeMax;
             downCounter = changeMax;
           }
-
-
-
-
-
         }
-
       }
-
-
     }
-
-
   }
-
 }

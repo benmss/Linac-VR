@@ -30,6 +30,13 @@ public class LaserController : MonoBehaviour {
     AlignLasers();
 	}
   
+  public void Toggle() {
+    on = !on;
+    foreach (Material m in mats) {        
+      m.SetInt("_ON",(on == true ? 1 : 0));
+    }
+  }
+  
   public void ChangeLasers(float v) {    
     foreach (Material m in mats) {        
       m.SetInt("_ON",((int)Math.Round(v)));

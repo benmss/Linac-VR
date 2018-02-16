@@ -9,7 +9,7 @@ using MarchingCubesGPUProject;
 
 public class MeshMaker {
 
-  public struct ModelData {
+  public class ModelData {
     public List<List<List<Vector3>>> data;
     public List<float> dimensions;
     public MarchingMeshCreator meshMarcher;
@@ -21,18 +21,24 @@ public class MeshMaker {
     public string name;
   }
 
-  public struct Model {
+  public class Model {
     public string name;
     public List<GameObject> models;
     public List<Material> mats;
     public List<List<float>> dimensions;
     public byte[,,] sliceData;
     public int zMin;
+    public GameObject top;
   }
 
-  private static Vector3[] adjacent = {new Vector3(-1,0,0),new Vector3(1,0,0),new Vector3(0,-1,0),new Vector3(0,1,0)};
+  static Vector3[] adjacent = {new Vector3(-1,0,0),new Vector3(1,0,0),new Vector3(0,-1,0),new Vector3(0,1,0)};
   public const int upper = 2;
   public const int lower = 2;
+  
+  static Stopwatch swf1 = new Stopwatch();
+  static Stopwatch swf2 = new Stopwatch();
+  static Stopwatch swf3 = new Stopwatch();
+  static Stopwatch swf4 = new Stopwatch();
 
   /** ==================================================================================================
 
@@ -75,6 +81,12 @@ public class MeshMaker {
 
   ================================================================================================== **/
   public static ModelData MakeMesh(ModelData model, int[,,] slicePixels, Vector3 slicePosition) {
+    Stopwatch sw = new Stopwatch();
+    Stopwatch swf = new Stopwatch();
+    Stopwatch swb = new Stopwatch();
+    Stopwatch swn = new Stopwatch();
+    Stopwatch swc = new Stopwatch();
+    sw.Start();
     int xMin = (int)Mathf.Round(model.dimensions[0]-lower);
     int xMax = (int)Mathf.Round(model.dimensions[1]+upper);
     int yMin = (int)Mathf.Round(model.dimensions[2]-lower);
@@ -103,17 +115,17 @@ public class MeshMaker {
       zd = (int)Mathf.Round(model.dimensions[4] - slicePosition.z);
     }
 
-    // Material mat = new Material(Shader.Find("Standard"));
-    // mat.color = c;
+
 
     //For each 2D slice (|Z| value)
-    
     for (int z = 0; z < model.data.Count; z++) {
       //For each |S|tructure within a single 2D slice
       for (int s = 0; s < model.data[z].Count; s++) {
         //Apply Bresenham's 2D line algorithm and create Set of resulting points
         HashSet<Vector3> voxelPoints = new HashSet<Vector3>();
 
+        
+        swb.Start();
         //For each |P|oint in this structure
         for (int p = 0; p < model.data[z][s].Count; p++) {
           Vector3 v1 = model.data[z][s][p];
@@ -130,7 +142,10 @@ public class MeshMaker {
             voxelPoints.Add(v);
           }
         }
+        swb.Stop();
+        
 
+        swn.Start();
         //Find original point that has a neighbour within bounds of structure and fill volume from it
         //Loop terminates when a valid point is found
         for (int p = 0; p < model.data[z][s].Count; p++) {
@@ -152,10 +167,12 @@ public class MeshMaker {
           }
 
           if (!found) { continue; }
-
+          swn.Stop();
+          swf.Start();
           //Flood fill from found point
           List<Vector3> listPoints = FloodFill2(adjPoint, voxelPoints, model.dimensions);
-
+          swf.Stop();
+          swc.Start();
           //Convert points to 1D array for marching cubes
           foreach (Vector3 v in listPoints) {
             int idx = ((int)Mathf.Round(v.x - xMin)) +
@@ -170,8 +187,8 @@ public class MeshMaker {
               sliceData2[ix,iy,iz] = 1;
               // sliceData[idx] = 1;
               if (!printOnce) {
-                UnityEngine.Debug.Log(v + " -> (" + ix + "," + iy + "," + iz + ") | " +
-                xd + "," + yd + "," + zd + ", zRange: " + model.data.Count);
+                // UnityEngine.Debug.Log(v + " -> (" + ix + "," + iy + "," + iz + ") | " +
+                // xd + "," + yd + "," + zd + ", zRange: " + model.data.Count);
                 printOnce = true;
               }
             }
@@ -179,40 +196,50 @@ public class MeshMaker {
           if (model.model == 0) {
             model.data[z][s] = listPoints;
           }
+          swc.Stop();
 
           //Terminate loop
           break;
         }
+        
       }
     }
 
     //Slices
     model.data = null;
     if (model.model == 0) {
-
-
-
-
-
-
-
-
       model.sliceData = sliceData2;
     }
-
+    
+    sw.Stop();
+    
     model.sw.Start();
     model.meshData = model.meshMarcher.CreateMesh(pixels,width,height,depth,model.model);
+
     // UnityEngine.Debug.Log("MeshData: " + model.meshData.Count);
     // MarchingMeshCreator m = meshMarcher.GetComponent<MarchingMeshCreator>();
     // m.CreateMesh(pixels,width,height,depth,model.model);
 
     model.sw.Stop();
+    
+    
+    FileReader.printStopwatch(swf2,"Floodfill - Fill: ");
+    FileReader.printStopwatch(swf3,"Floodfill - Fix: ");
+    FileReader.printStopwatch(swf4,"Floodfill - Convert: ");
+    FileReader.printStopwatch(swf1,"Floodfill - Other: ");
+    
+    FileReader.printStopwatch(model.sw,"MeshMaker CreateMesh - Marching: ");
+    FileReader.printStopwatch(swb,"MeshMaker CreateMesh - Bresenham: ");
+    FileReader.printStopwatch(swn,"MeshMaker CreateMesh - Neighbour: ");
+    FileReader.printStopwatch(swf,"MeshMaker CreateMesh - Fill: ");
+    FileReader.printStopwatch(swc,"MeshMaker CreateMesh - Convert: ");
+    FileReader.printStopwatch(sw,"MeshMaker CreateMesh - Total Non Marching: ");
     return model;
   }
 
   /** ======================================================
 
-    Move models created by FileReader.LoadStructureSet,
+    Move models created by ModelLoader.LoadStructureSet,
     from a single structure file, into the correct places
     relative to each other.
 
@@ -254,13 +281,19 @@ public class MeshMaker {
     }
   }
 
-
+  static void print(string p) {
+    UnityEngine.Debug.Log(p);
+  }
 
   public static Model CreateModel(List<ModelData> modelData, string name) {
+    Stopwatch sw = new Stopwatch();    
+    sw.Start();
     Model model = new Model();
     GameObject top = new GameObject(name);
+    model.top = top;
 
     int meshCounter = 0;
+    // bool printed = false;
 
     List<GameObject> gos = new List<GameObject>();
     List<Material> mats = new List<Material>();
@@ -269,16 +302,18 @@ public class MeshMaker {
 
     for (int i = 0; i < modelData.Count; i++) {
       ModelData md = modelData[i];
+      if (md.meshData == null) { continue; }
       if (md.meshData.Count == 0) { continue; }
       GameObject mid = new GameObject ("Model " + i);
       mid.transform.parent = top.transform;
-      Material mat = new Material(Shader.Find("Standard"));
-      mat.color = md.colour;
+      //Using legacy shader for adjustable transparency at runtime, see
+      //UIController.VisibilitySliders for more info.
+      Material mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse"));
+      mat.SetColor("_Color", md.colour);
 
       gos.Add(mid);
       mats.Add(mat);
       dims.Add(md.dimensions);
-
 
       //Create mesh gameobject
       // UnityEngine.Debug.Log("Model " + i + ", " + md.meshData.Count);
@@ -311,6 +346,7 @@ public class MeshMaker {
     model.mats = mats;
     model.dimensions = dims;
 
+    // FileReader.printStopwatch(sw, "CreateModel: ");    
     return model;
   }
 
@@ -364,16 +400,27 @@ public class MeshMaker {
     return m;
   }
 
-  public static void ScaleModel(GameObject meshMarcher, Vector3 pos, Vector3 dim) {
-    Transform t0 = meshMarcher.transform.GetChild(0);
+  public static void ScaleModel(Transform top, Vector3 pos, List<float> dimensions) {
+    top.Rotate(0,90,180);
+    top.transform.localScale = new Vector3(0.001f,0.001f,0.001f);
+    top.transform.position = pos;
+    BoxCollider b = top.gameObject.AddComponent<BoxCollider>();
+    float width = dimensions[1] - dimensions[0];
+    float height = dimensions[3] - dimensions[2];
+    float depth = dimensions[5] - dimensions[4];
+    b.size = new Vector3(width,height,depth*5);
+    Rigidbody rb = top.gameObject.AddComponent<Rigidbody>();
+    rb.mass = 5;
+    rb.drag = 0.5f;
 
+    // UnityEngine.Debug.LogError("Scaled.");
   }
 
 
   static bool InsideStructure(Vector3 point, List<Vector3> structure) {
     if (structure[0] != structure[structure.Count-1]) { UnityEngine.Debug.LogError("V mismatch"); }
     // return InPoly(point,structure) != 0;
-    return InPoly2(point,structure) != 0;
+    return InPoly2(point,structure) != 0 && InPoly(point,structure) != 0;
   }
 
   //Winding Number implementation (IsLeft & InPoly, and InPoly2) by Dan Sunday:
@@ -416,7 +463,85 @@ public class MeshMaker {
 
   //Slightly better flood fill method
   //Uses a byte array to represent pixels, faster to read and set at the cost of increased mem usage
-  static List<Vector3> FloodFill2(Vector3 start, HashSet<Vector3> points, List<float> dimensions) {
+  static List<Vector3> FloodFill2(Vector3 start, HashSet<Vector3> points, List<float> dimensions) {    
+    swf1.Start();
+    List<Vector3> p = new List<Vector3>();
+    LinkedList<Vector3> targetPoints = new LinkedList<Vector3>();
+    targetPoints.AddLast(start);
+
+    int xMin = (int)Mathf.Round(dimensions[0]-lower);
+    int xMax = (int)Mathf.Round(dimensions[1]+upper);
+    int yMin = (int)Mathf.Round(dimensions[2]-lower);
+    int yMax = (int)Mathf.Round(dimensions[3]+upper);
+    int zMin = (int)Mathf.Round(dimensions[4]-lower);
+    int zMax = (int)Mathf.Round(dimensions[5]+upper);
+    int width = xMax - xMin;
+    int height = yMax - yMin;
+    int depth = zMax - zMin;
+
+    byte[,] pixels = new byte[width,height];
+
+    //Flag boundary pixels as 3
+    foreach (Vector3 v in points) {
+      pixels[(int)v.x - xMin,(int)v.y - yMin] = 3;
+    }
+    swf1.Stop();
+
+    swf2.Start();
+    //Loop through pixels starting from the 'start' pixel
+    //Pixels to be visited are flagged with value 1
+    //Pixels that have been visited are flagged with value 2
+    //This prevents pixels from being looked at twice
+    while (targetPoints.Count != 0) {
+      Vector3 v = targetPoints.First.Value;
+      int x = (int)v.x - xMin;
+      int y = (int)v.y - yMin;
+      pixels[x,y] = 2;
+
+      for (int i = 0; i < adjacent.Length; i++) {
+        int x2 = (int)(v.x + adjacent[i].x - xMin);
+        int y2 = (int)(v.y + adjacent[i].y - yMin);
+        if (x2 < 0 || x2 >= width) { continue; }
+        if (y2 < 0 || y2 >= height) { continue; }
+        if (pixels[x2,y2] != 0) { continue; }
+        pixels[x2,y2] = 1;
+        targetPoints.AddLast(v + adjacent[i]);
+      }
+      targetPoints.RemoveFirst();
+    }
+    swf2.Stop();
+
+    swf3.Start();
+    if (pixels[0,0] == 2) {
+      //FloodFill has filled the wrong area, invert array to fix
+      //Boundary pixels are set to 3 so they are ignored
+      for (int i = 0 ; i < width; i++) {
+        for (int j = 0; j < height; j++) {
+          if (pixels[i,j] == 2) {
+            pixels[i,j] = 0;
+          } else if (pixels[i,j] == 0) {
+            pixels[i,j] = 2;
+          }
+        }
+      }
+    }
+    swf3.Stop();
+
+    swf4.Start();
+    //Convert byte array into list of pixels
+    for (int i = 0 ; i < width; i++) {
+      for (int j = 0; j < height; j++) {
+        if (pixels[i,j] >= 2) {
+          p.Add(new Vector3(i+xMin,j+yMin,start.z));
+        }
+      }
+    }
+    swf4.Stop();
+    
+    return p;
+  }
+  
+  static List<Vector3> FloodFill3(Vector3 start, HashSet<Vector3> points, List<float> dimensions, Vector3[] data) {
     List<Vector3> p = new List<Vector3>();
     LinkedList<Vector3> targetPoints = new LinkedList<Vector3>();
     targetPoints.AddLast(start);

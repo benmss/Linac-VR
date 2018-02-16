@@ -14,6 +14,14 @@ public class XrayController : MonoBehaviour {
     }
 	}
   
+  public void Toggle() {
+    if (ps1.isPlaying) {
+      ps1.Stop();
+    } else {
+      ps1.Play();
+    }
+  }
+  
   public void ChangeBeam(float v) {
     bool b = v > 0.5 ? true : false;
     if (b) {
