@@ -8,9 +8,6 @@ using System.IO;
 using System;
 using System.Diagnostics;
 
-using MarchingCubesProject;
-
-
 
 public class FileReader : MonoBehaviour {
 
@@ -39,6 +36,9 @@ public class FileReader : MonoBehaviour {
   float[] positionalStep = new float[3];
   float[] positionalStart = new float[3];
 
+  [Header("File Path")]
+  public string pathToData;
+  
   [Header("Slice Viewer")]
   public GameObject transverse;
   public GameObject coronal;
@@ -50,6 +50,8 @@ public class FileReader : MonoBehaviour {
   [Header("Rendering")]
   public GameObject meshMarcher;
   public GameObject bed;
+  public GameObject bedBackup;
+  public GameObject bedSlot;
   public GameObject testBox;
   public bool drawMesh;
   [Range(0,20)]
@@ -58,20 +60,42 @@ public class FileReader : MonoBehaviour {
   public int meshRangeMax = 1;
   [Range(-1,20)]
   public int meshRangeOverride = 0;
+  
 
   static Thread mainThread = Thread.CurrentThread;
   
-  public static bool printStopwatches = true;
+  public static bool printStopwatches = false;
+  
+  
+  BedSlot bs;
   
   UIController uic;
   MarchingMeshCreator meshMarcherC;  
   Dictionary<string,MeshMaker.Model> models = new Dictionary<string,MeshMaker.Model>();
   Dictionary<string,int[,,]> slices = new Dictionary<string,int[,,]>();
   Dictionary<string,Vector3> slicePosition = new Dictionary<string,Vector3>();
-  List<string> modelNames = new List<string>();
+  List<string> modelNames = new List<string>();  
+  
+  LinkedList<DoubleString> loadQueue = new LinkedList<DoubleString>();
+  bool loadingModel = false;
+  bool loadingModelDone = false;
+  bool loadingModelChange = false;
+  string loadingModelName = "";
+  
+  
   public static List<MeshMaker.ModelData> modelData;
   
   bool testMainThread = false;  
+  
+  struct DoubleString {
+    public DoubleString(string s1, string s2) {
+      this.s1 = s1;
+      this.s2 = s2;
+    }
+    
+    public string s1;
+    public string s2;
+  }
 
   string ModelNameGenerator(string filePath) {
     //Get folder name from path
@@ -89,6 +113,9 @@ public class FileReader : MonoBehaviour {
   public List<string> FindLoadableFolders() {
     //Could use default file path from a config file
     string defaultPath = "../..";
+    if (pathToData != "") {
+      defaultPath = pathToData;
+    }    
     List<string> files = new List<string>();
 
     //To be loadable a folder must contain an RT structure file.
@@ -102,18 +129,19 @@ public class FileReader : MonoBehaviour {
   }
 
   void Start() {    
+    bs = bedSlot.GetComponent<BedSlot>();
     uic = GameObject.Find("UI Controller").GetComponent<UIController>();
-    print(GameObject.Find("Wall").GetComponent<MeshRenderer>().material.shader.name);
+    // print(GameObject.Find("Wall").GetComponent<MeshRenderer>().material.shader.name);
     // Transform top = bed.transform.parent.parent;
     // Bounds bounds = new Bounds(top.position,Vector3.zero);
     // bounds.Encapsulate(bed.GetComponent<MeshRenderer>().bounds);
     // print("Bed: " + bounds);
     // return;
 
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < 0; i++) {
       string s = "";
       // if (i % 2 == 0) {
-        s = "../../LUNG DICOM DATA";
+        s = "./LUNG DICOM DATA";
       // } else {
         // s = "../../PELVIS DICOM DATA";
       // }
@@ -135,9 +163,8 @@ public class FileReader : MonoBehaviour {
     //Generate unique name for new model made from passed file
     string fname = ModelNameGenerator(filePath);
     
-    //Avoid running this method on the Unity main thread.
-    Thread t = new Thread(() => LoadModel(filePath, fname));
-    t.Start();
+    loadQueue.AddLast(new DoubleString(filePath,fname));
+    loadingModelChange = true;
   }
   
 	private void LoadModel (string filePath, string fname) {
@@ -157,6 +184,7 @@ public class FileReader : MonoBehaviour {
     models.Remove(s);
     if (slices.ContainsKey(s)) { slices.Remove(s); }
     if (slicePosition.ContainsKey(s)) { slicePosition.Remove(s); }
+    bs.CheckRemove(g);
     modelNames.RemoveAt(idx);
     Destroy(g);
   }
@@ -188,8 +216,34 @@ public class FileReader : MonoBehaviour {
   ==========================================================================**/
 	void Update () {
     if (rotate != null) {
-      MeshMaker.ScaleModel(rotate,bed.transform.position,models[rotate.gameObject.name].dimensions[0]);
+      Transform t = null;
+      if (bs.IsFull()) {
+        t = bedBackup.transform;
+      } else {
+        t = bed.transform;
+      }
+      MeshMaker.ScaleModel(rotate,t,models[rotate.gameObject.name].dimensions[0]);
       rotate = null;
+    }
+    
+    
+    
+    if (!loadingModel && loadQueue.Count > 0) {
+      loadingModel = true;
+      loadingModelDone = false;
+      loadingModelChange = false;
+      DoubleString ds = loadQueue.First.Value;
+      loadQueue.RemoveFirst();
+      
+      //Avoid running this method on the Unity main thread.
+      Thread t = new Thread(() => LoadModel(ds.s1, ds.s2));
+      t.Start();
+      
+      loadingModelName = ds.s2;
+      uic.UpdateLoadUI(ds.s2,loadQueue.Count);
+    } else if (loadingModelChange) {
+      loadingModelChange = false;
+      uic.UpdateLoadUI(loadingModelName,loadQueue.Count);
     }
 
     if (FileReader.modelData != null) {      
@@ -207,6 +261,9 @@ public class FileReader : MonoBehaviour {
       // ShowSlice(m.name,0,70);
       sw.Stop();
       printStopwatch(sw, "Update Model: ");
+      loadingModelName = "";
+      loadingModel = false;
+      loadingModelChange = true;
     }
 	}
 

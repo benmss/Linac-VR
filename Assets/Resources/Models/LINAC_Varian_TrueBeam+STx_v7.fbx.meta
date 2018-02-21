@@ -1,0 +1,314 @@
+fileFormatVersion: 2
+guid: 5d2dfd72d604409468b01df12c8e11bc
+timeCreated: 1518991853
+licenseType: Free
+ModelImporter:
+  serializedVersion: 19
+  fileIDToRecycleName:
+    100000: '*MODELSPACE'
+    100002: 014b1e03-8ed0-449a-95aa-2ae4b75b1988
+    100004: 0d4741fb-354d-4f2a-bb02-0e6213b1f9c1
+    100006: 0d5528ee-0a27-4406-9f45-d8ed96c9634d
+    100008: 0f1fe8e2-4af6-4abe-92eb-7b006ca1cd95
+    100010: 3ea58cee-cd44-4925-ac2a-a90640d8e446
+    100012: 3ea58cee-cd44-4925-ac2a-a90640d8e446 1
+    100014: 4e4b7ebb-5c7f-40c5-a9e9-538506232482
+    100016: 4f6867a5-852b-4db2-a30b-24d842d4bd31
+    100018: 54e5d1be291ebdac1cfed709787280a4
+    100020: 5d60b404-6859-4519-a2d9-7dab5424179a
+    100022: 5d9dcc44-2a28-4a06-90cd-dc7cd01026db
+    100024: 5eedf78e-d0f0-4357-9560-cc2621cdfaab
+    100026: 61339f29-d2d8-4d06-bae3-3cc2b1c906b7
+    100028: 63248179-5adc-4d2c-adf0-93bf25f50cfb
+    100030: 857242c4-68aa-48a2-be72-c5be9d99c21c
+    100032: 9976d6e6-e2ba-4340-9a65-7eefaa8b14fe
+    100034: 9b93a0cd-b99d-4145-ac89-68d229a492f8
+    100036: a68cb4fc-7929-493d-ad02-57aa124d2249
+    100038: c5ca2647-c92b-4473-9934-0db8047c2511
+    100040: c6a3065b-c1f5-49a0-b7d9-7aa848523759
+    100042: d0f09666-e8a3-487e-adeb-2b77aafe6189
+    100044: de937936-c013-4468-ba18-642d67295832
+    100046: ea6e9087-af30-450b-8c87-1ca279260890
+    100048: f5cede67-b988-4476-880b-1c7607698fcf
+    100050: f6558424-f881-4766-8147-72d77ac7ac45
+    100052: f6bcce76-c372-4815-ba4c-1b3848f479ed
+    100054: f96ba918-8e00-4480-9faf-56a82a32f213
+    100056: FbxMesh
+    100058: FbxMesh 1
+    100060: FbxMesh 10
+    100062: FbxMesh 11
+    100064: FbxMesh 12
+    100066: FbxMesh 13
+    100068: FbxMesh 14
+    100070: FbxMesh 15
+    100072: FbxMesh 16
+    100074: FbxMesh 17
+    100076: FbxMesh 18
+    100078: FbxMesh 19
+    100080: FbxMesh 2
+    100082: FbxMesh 20
+    100084: FbxMesh 21
+    100086: FbxMesh 22
+    100088: FbxMesh 23
+    100090: FbxMesh 3
+    100092: FbxMesh 4
+    100094: FbxMesh 5
+    100096: FbxMesh 6
+    100098: FbxMesh 7
+    100100: FbxMesh 8
+    100102: FbxMesh 9
+    100104: FbxMeshes
+    100106: FbxMeshes 1
+    100108: FbxMeshes 10
+    100110: FbxMeshes 11
+    100112: FbxMeshes 12
+    100114: FbxMeshes 13
+    100116: FbxMeshes 14
+    100118: FbxMeshes 15
+    100120: FbxMeshes 16
+    100122: FbxMeshes 17
+    100124: FbxMeshes 18
+    100126: FbxMeshes 19
+    100128: FbxMeshes 2
+    100130: FbxMeshes 20
+    100132: FbxMeshes 21
+    100134: FbxMeshes 22
+    100136: FbxMeshes 23
+    100138: FbxMeshes 24
+    100140: FbxMeshes 25
+    100142: FbxMeshes 26
+    100144: FbxMeshes 27
+    100146: FbxMeshes 3
+    100148: FbxMeshes 4
+    100150: FbxMeshes 5
+    100152: FbxMeshes 6
+    100154: FbxMeshes 7
+    100156: FbxMeshes 8
+    100158: FbxMeshes 9
+    100160: fececff5-779d-4400-8de2-ab85d3aace88
+    100162: LightsNode
+    100164: //RootNode
+    400000: '*MODELSPACE'
+    400002: 014b1e03-8ed0-449a-95aa-2ae4b75b1988
+    400004: 0d4741fb-354d-4f2a-bb02-0e6213b1f9c1
+    400006: 0d5528ee-0a27-4406-9f45-d8ed96c9634d
+    400008: 0f1fe8e2-4af6-4abe-92eb-7b006ca1cd95
+    400010: 3ea58cee-cd44-4925-ac2a-a90640d8e446
+    400012: 3ea58cee-cd44-4925-ac2a-a90640d8e446 1
+    400014: 4e4b7ebb-5c7f-40c5-a9e9-538506232482
+    400016: 4f6867a5-852b-4db2-a30b-24d842d4bd31
+    400018: 54e5d1be291ebdac1cfed709787280a4
+    400020: 5d60b404-6859-4519-a2d9-7dab5424179a
+    400022: 5d9dcc44-2a28-4a06-90cd-dc7cd01026db
+    400024: 5eedf78e-d0f0-4357-9560-cc2621cdfaab
+    400026: 61339f29-d2d8-4d06-bae3-3cc2b1c906b7
+    400028: 63248179-5adc-4d2c-adf0-93bf25f50cfb
+    400030: 857242c4-68aa-48a2-be72-c5be9d99c21c
+    400032: 9976d6e6-e2ba-4340-9a65-7eefaa8b14fe
+    400034: 9b93a0cd-b99d-4145-ac89-68d229a492f8
+    400036: a68cb4fc-7929-493d-ad02-57aa124d2249
+    400038: c5ca2647-c92b-4473-9934-0db8047c2511
+    400040: c6a3065b-c1f5-49a0-b7d9-7aa848523759
+    400042: d0f09666-e8a3-487e-adeb-2b77aafe6189
+    400044: de937936-c013-4468-ba18-642d67295832
+    400046: ea6e9087-af30-450b-8c87-1ca279260890
+    400048: f5cede67-b988-4476-880b-1c7607698fcf
+    400050: f6558424-f881-4766-8147-72d77ac7ac45
+    400052: f6bcce76-c372-4815-ba4c-1b3848f479ed
+    400054: f96ba918-8e00-4480-9faf-56a82a32f213
+    400056: FbxMesh
+    400058: FbxMesh 1
+    400060: FbxMesh 10
+    400062: FbxMesh 11
+    400064: FbxMesh 12
+    400066: FbxMesh 13
+    400068: FbxMesh 14
+    400070: FbxMesh 15
+    400072: FbxMesh 16
+    400074: FbxMesh 17
+    400076: FbxMesh 18
+    400078: FbxMesh 19
+    400080: FbxMesh 2
+    400082: FbxMesh 20
+    400084: FbxMesh 21
+    400086: FbxMesh 22
+    400088: FbxMesh 23
+    400090: FbxMesh 3
+    400092: FbxMesh 4
+    400094: FbxMesh 5
+    400096: FbxMesh 6
+    400098: FbxMesh 7
+    400100: FbxMesh 8
+    400102: FbxMesh 9
+    400104: FbxMeshes
+    400106: FbxMeshes 1
+    400108: FbxMeshes 10
+    400110: FbxMeshes 11
+    400112: FbxMeshes 12
+    400114: FbxMeshes 13
+    400116: FbxMeshes 14
+    400118: FbxMeshes 15
+    400120: FbxMeshes 16
+    400122: FbxMeshes 17
+    400124: FbxMeshes 18
+    400126: FbxMeshes 19
+    400128: FbxMeshes 2
+    400130: FbxMeshes 20
+    400132: FbxMeshes 21
+    400134: FbxMeshes 22
+    400136: FbxMeshes 23
+    400138: FbxMeshes 24
+    400140: FbxMeshes 25
+    400142: FbxMeshes 26
+    400144: FbxMeshes 27
+    400146: FbxMeshes 3
+    400148: FbxMeshes 4
+    400150: FbxMeshes 5
+    400152: FbxMeshes 6
+    400154: FbxMeshes 7
+    400156: FbxMeshes 8
+    400158: FbxMeshes 9
+    400160: fececff5-779d-4400-8de2-ab85d3aace88
+    400162: LightsNode
+    400164: //RootNode
+    2300000: FbxMesh
+    2300002: FbxMesh 1
+    2300004: FbxMesh 10
+    2300006: FbxMesh 11
+    2300008: FbxMesh 12
+    2300010: FbxMesh 13
+    2300012: FbxMesh 14
+    2300014: FbxMesh 15
+    2300016: FbxMesh 16
+    2300018: FbxMesh 17
+    2300020: FbxMesh 18
+    2300022: FbxMesh 19
+    2300024: FbxMesh 2
+    2300026: FbxMesh 20
+    2300028: FbxMesh 21
+    2300030: FbxMesh 22
+    2300032: FbxMesh 23
+    2300034: FbxMesh 3
+    2300036: FbxMesh 4
+    2300038: FbxMesh 5
+    2300040: FbxMesh 6
+    2300042: FbxMesh 7
+    2300044: FbxMesh 8
+    2300046: FbxMesh 9
+    3300000: FbxMesh
+    3300002: FbxMesh 1
+    3300004: FbxMesh 10
+    3300006: FbxMesh 11
+    3300008: FbxMesh 12
+    3300010: FbxMesh 13
+    3300012: FbxMesh 14
+    3300014: FbxMesh 15
+    3300016: FbxMesh 16
+    3300018: FbxMesh 17
+    3300020: FbxMesh 18
+    3300022: FbxMesh 19
+    3300024: FbxMesh 2
+    3300026: FbxMesh 20
+    3300028: FbxMesh 21
+    3300030: FbxMesh 22
+    3300032: FbxMesh 23
+    3300034: FbxMesh 3
+    3300036: FbxMesh 4
+    3300038: FbxMesh 5
+    3300040: FbxMesh 6
+    3300042: FbxMesh 7
+    3300044: FbxMesh 8
+    3300046: FbxMesh 9
+    4300000: FbxMesh
+    4300002: FbxMesh
+    4300004: FbxMesh
+    4300006: FbxMesh
+    4300008: FbxMesh
+    4300010: FbxMesh
+    4300012: FbxMesh
+    4300014: FbxMesh
+    4300016: FbxMesh
+    4300018: FbxMesh
+    4300020: FbxMesh
+    4300022: FbxMesh
+    4300024: FbxMesh
+    4300026: FbxMesh
+    4300028: FbxMesh
+    4300030: FbxMesh
+    4300032: FbxMesh
+    4300034: FbxMesh
+    4300036: FbxMesh
+    4300038: FbxMesh
+    4300040: FbxMesh
+    4300042: FbxMesh
+    4300044: FbxMesh
+  materials:
+    importMaterials: 1
+    materialName: 0
+    materialSearch: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    animationCompression: 1
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    clipAnimations: []
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    importBlendShapes: 1
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 1
+    keepQuads: 0
+    weldVertices: 1
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+  importAnimation: 1
+  copyAvatar: 0
+  humanDescription:
+    serializedVersion: 2
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    rootMotionBoneName: 
+    rootMotionBoneRotation: {x: 0, y: 0, z: 0, w: 1}
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {instanceID: 0}
+  animationType: 0
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

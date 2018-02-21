@@ -503,6 +503,7 @@ namespace Valve.VR.InteractionSystem
 
 			// DebugVar
 			int iActualColliderCount = 0;
+      
 
 			foreach ( Collider collider in overlappingColliders )
 			{
@@ -520,18 +521,21 @@ namespace Valve.VR.InteractionSystem
 				if ( ignore != null )
 				{
 					if ( ignore.onlyIgnoreHand == null || ignore.onlyIgnoreHand == this )
-					{
+					{            
 						continue;
 					}
 				}
 
 				// Can't hover over the object if it's attached
-				if ( attachedObjects.FindIndex( l => l.attachedObject == contacting.gameObject ) != -1 )
+				if ( attachedObjects.FindIndex( l => l.attachedObject == contacting.gameObject ) != -1 ) {          
 					continue;
+        }
+        
 
 				// Occupied by another hand, so we can't touch it
-				if ( otherHand && otherHand.hoveringInteractable == contacting )
+				if ( otherHand && otherHand.hoveringInteractable == contacting ) {          
 					continue;
+        }
 
 				// Best candidate so far...
 				float distance = Vector3.Distance( contacting.transform.position, hoverSphereTransform.position );
@@ -545,11 +549,13 @@ namespace Valve.VR.InteractionSystem
 
 			// Hover on this one
 			hoveringInteractable = closestInteractable;
-
+      
+      
 			if ( iActualColliderCount > 0 && iActualColliderCount != prevOverlappingColliders )
 			{
 				prevOverlappingColliders = iActualColliderCount;
 				HandDebugLog( "Found " + iActualColliderCount + " overlapping colliders." );
+        // AttachObject(hoveringInteractable.gameObject);
 			}
 		}
 
