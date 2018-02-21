@@ -526,7 +526,7 @@ namespace Valve.VR.InteractionSystem
 					SteamVR_Controller.Device device = SteamVR_Controller.Input( (int)renderModel.index );
 					if ( device != null )
 					{
-						device.TriggerHapticPulse();
+						// device.TriggerHapticPulse();
 					}
 				}
 

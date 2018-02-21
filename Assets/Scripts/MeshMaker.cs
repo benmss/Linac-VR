@@ -4,9 +4,6 @@ using UnityEngine;
 using System;
 using System.Diagnostics;
 
-using MarchingCubesProject;
-using MarchingCubesGPUProject;
-
 public class MeshMaker {
 
   public class ModelData {
@@ -276,9 +273,9 @@ public class MeshMaker {
       }
     }
 
-    for (int i = 1; i < meshMarcher.transform.childCount;) {
-      meshMarcher.transform.GetChild(i).parent = t0;
-    }
+    // for (int i = 1; i < meshMarcher.transform.childCount;) {
+      // meshMarcher.transform.GetChild(i).parent = t0;
+    // }
   }
 
   static void print(string p) {
@@ -290,6 +287,7 @@ public class MeshMaker {
     sw.Start();
     Model model = new Model();
     GameObject top = new GameObject(name);
+    top.layer = 12;
     model.top = top;
 
     int meshCounter = 0;
@@ -305,6 +303,7 @@ public class MeshMaker {
       if (md.meshData == null) { continue; }
       if (md.meshData.Count == 0) { continue; }
       GameObject mid = new GameObject ("Model " + i);
+      mid.layer = 12;
       mid.transform.parent = top.transform;
       //Using legacy shader for adjustable transparency at runtime, see
       //UIController.VisibilitySliders for more info.
@@ -325,6 +324,9 @@ public class MeshMaker {
         mesh.RecalculateNormals();
 
         GameObject go = new GameObject("Mesh " + meshCounter);
+        if (i == 0) {
+          go.layer = 12;
+        }
         go.transform.parent = mid.transform;
         go.AddComponent<MeshFilter>();
         go.AddComponent<MeshRenderer>();
@@ -400,10 +402,11 @@ public class MeshMaker {
     return m;
   }
 
-  public static void ScaleModel(Transform top, Vector3 pos, List<float> dimensions) {
+  public static void ScaleModel(Transform top, Transform pos, List<float> dimensions) {
     top.Rotate(0,90,180);
     top.transform.localScale = new Vector3(0.001f,0.001f,0.001f);
-    top.transform.position = pos;
+    top.transform.position = pos.transform.position;
+    // top.transform.parent = pos;
     BoxCollider b = top.gameObject.AddComponent<BoxCollider>();
     float width = dimensions[1] - dimensions[0];
     float height = dimensions[3] - dimensions[2];

@@ -104,6 +104,7 @@ public class SteamVR_Controller
 
 		public void TriggerHapticPulse(ushort durationMicroSec = 500, EVRButtonId buttonId = EVRButtonId.k_EButton_SteamVR_Touchpad)
 		{
+      // FileReader.print("Haptic Trace");
 			var system = OpenVR.System;
 			if (system != null)
 			{

@@ -9,6 +9,7 @@ Shader "Custom/LaserOverlay"
         _LaserBad ("Laser Bad", Color) = (1,0.1,0.1,1)        
         _LaserGood ("Laser Good", Color) = (0.1,1,0.1,1)        
         [NoScaleOffset] _MainTex ("Texture", 2D) = "white" {}
+        _Color ("Color", Color) = (1,1,1,1)
         _xMin ("xMin", Float) = 0
         _xMax ("xMax", Float) = 0
         _yMin ("yMin", Float) = 0
@@ -69,6 +70,7 @@ Shader "Custom/LaserOverlay"
             sampler2D _MainTex;            
             fixed4 _LaserBad;
             fixed4 _LaserGood;
+            fixed4 _Color;
             float _xMin;
             float _xMax;
             float _yMin;
@@ -80,7 +82,7 @@ Shader "Custom/LaserOverlay"
 
             fixed4 frag (v2f i) : SV_Target
             {
-                fixed4 col = tex2D(_MainTex, i.uv);
+                fixed4 col = tex2D(_MainTex, i.uv) * _Color;
                 
                 if (_ON == 1) {
                   // if (i.wpos.x < _xMax && i.wpos.x > _xMin) {

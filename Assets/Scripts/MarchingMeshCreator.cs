@@ -46,8 +46,7 @@ public class MarchingMeshCreator : MonoBehaviour {
 
     //From tests above, 4 threads looks best.
     //However, 3 might be safer, freeing up some CPU time for Unity/VR Kit/Other Stuff.
-    //Of course some systems have 8 cores and up to 16 with hyperthreading (technically)
-    //So they might do better with more.
+    //Assuming a similar CPU is being used.
     //========================================================================================
     int nThreads = 4;
 

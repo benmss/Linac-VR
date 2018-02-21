@@ -26,11 +26,11 @@ public class UIController : MonoBehaviour {
       a. Gantry
          i. Left and Right
       b. Bed (6 DOF)
-         i. Y axis rotation (90° max?)
-        ii. X axis rotation ( 3° max?)
-       iii. Z axis rotation (max??)
-        iv. Up/Down Movement
-         v. Left/Right Movement
+         i. Y axis rotation (90° max)
+        ii. X axis rotation ( 3° max)
+       iii. Z axis rotation ( 3° max)
+        iv. Left/Right Movement
+         v. Up/Down Movement         
         vi. Forward/Back Movement
 
     3. Visibility
@@ -68,6 +68,9 @@ public class UIController : MonoBehaviour {
   int currentItem = 0;
   Dictionary<int,List<GameObject>> selectables = new Dictionary<int,List<GameObject>>();
   Dictionary<int,List<Action<int>>> actions = new Dictionary<int,List<Action<int>>>();
+  // Dictionary<int,List<int>> selectableTimers = new Dictionary<int,List<int>>();
+  int[] selectableTimers;
+  int selectableTimersMax = 500;
 
   bool showing = false;
   int upCounter = 0;
@@ -80,6 +83,7 @@ public class UIController : MonoBehaviour {
   bool delayedHighlight = false;
   int loadDelay = 50;
   int loadCounter = 0;
+  //Initial size of scrollview content pane, that must match UI window height
   float contentSize = 217.5f;
 
   Scrollbar[] sba = new Scrollbar[2];
@@ -87,6 +91,10 @@ public class UIController : MonoBehaviour {
   Text laserText;
   Text xrayText;
   
+  static int loadingCharLimit = 14;
+  
+
+  float[] rotationSliderValues;
 
   bool fixScrollbar = false;
 
@@ -95,6 +103,9 @@ public class UIController : MonoBehaviour {
   public bool keyInput = true;
   public GameObject laserButton;
   public GameObject xrayButton;
+  public bool allowXray = true;
+  public GameObject loadingText;
+  public GameObject queueText;
 
 
   public bool test = false;
@@ -121,6 +132,8 @@ public class UIController : MonoBehaviour {
     public Text text;
   }
 
+
+
   void Start() {
     player = Player.instance;
 
@@ -135,8 +148,7 @@ public class UIController : MonoBehaviour {
     // panels = gameObject.GetComponent<UIController>().panels;
     if (panels.Length == 0) { return; }
 
-
-
+    //Get scrollbar and rect transform of panels 3 and 4
     for (int i = 0; i < sba.Length; i++) {
       //1 1
       sba[i] = panels[i+3].transform.GetChild(1).GetChild(1).GetComponent<Scrollbar>();
@@ -192,19 +204,34 @@ public class UIController : MonoBehaviour {
 
         if (!showing) { continue; }
 
+        //Trigger Button
         if (hand.controller.GetHairTriggerUp()) {
-          //Trigger Released
+          if (showing) {
+            //Select Menu Item
+            // TriggerItem(currentItem);
+            ShowPanel(1);
+          } else {
+            //Interact with model
+
+          }
+          return;
+        }
+        
+        if (hand.controller.GetPressUp(SteamVR_Controller.ButtonMask.Axis0)) {
           TriggerItem(currentItem);
           return;
         }
 
-        if (hand.controller.GetPressUp(SteamVR_Controller.ButtonMask.Grip)) {
+        // if (hand.controller.GetPressUp(SteamVR_Controller.ButtonMask.Grip)) {
           //Grip Released
-          ShowPanel(1);
-          return;
-        }
-
+          // ShowPanel(1);          
+          // return;
+        // }
+        
         Vector2 v = hand.controller.GetAxis();
+
+        // bool b0 = hand.controller.GetPressUp(SteamVR_Controller.ButtonMask.Axis0);
+        
 
         if (v.x > 0.5 && v.y < 0.5 && v.y > -0.5) {
           //Right
@@ -248,6 +275,41 @@ public class UIController : MonoBehaviour {
         }
 
       }
+    }
+  }
+  
+  public void UpdateLoadUI(string name, int queueSize) {    
+    if (name == "") {
+      panels[6].SetActive(false);
+    } else {
+      panels[6].SetActive(true);
+      //If name is longer than limit it is truncated so that
+      //the start and last 3 chars of it are visible, as these
+      //represent the model instance.
+      string n1 = "";
+      if (name.Length > loadingCharLimit) {        
+        for (int i = 0; i < loadingCharLimit - 3; i++) {
+          n1 += name[i];
+        }
+        n1 += "..";
+        for (int i = 3; i > 0; i--) {
+          n1 += name[name.Length-i];
+        }
+      } else {
+        n1 = name;
+      }
+      loadingText.GetComponent<Text>().text = " Loading: " + n1;
+    }
+    
+    if (queueSize == 0) {
+      panels[7].SetActive(false);
+    } else {
+      panels[7].SetActive(true);
+      string txt = "" + queueSize;
+      if (txt.Length > 1) {
+        txt = "9+";
+      }
+      queueText.GetComponent<Text>().text = "In Queue: " + txt;
     }
   }
 
@@ -345,21 +407,35 @@ public class UIController : MonoBehaviour {
   void TriggerItem(int idx) {
     if (currentPanel == 1) {
       actions[currentPanel][idx](idx+2);
-    } else if (currentPanel >= 2) {
+    } else if (currentPanel == 2) {
+      actions[currentPanel][idx](0);
+    } else if (currentPanel >= 3) {
       // // print("Trigger " + idx + ": " + actions[currentPanel][idx]);
       actions[currentPanel][idx](idx);
     }
   }
 
   void TriggerItem(int idx, int amt) {
+    if (currentPanel == 1) { return; }
+    if (!selectables[currentPanel][idx].name.StartsWith("Slider")) { return; }
+      // if (selectableTimers[idx] != 0) {
+        // selectableTimers[idx]--;
+        // return;
+      // } else {
+        // TriggerItem(idx);
+        // selectableTimers[idx] = selectableTimersMax;
+        // return;
+      // }
+    // }
+    
     actions[currentPanel][idx](amt);
   }
 
-  public void ToggleUI() {
+  //Toggles visibility of UI and updates lists of interactable elements
+  public void ToggleUI() {    
     showing = !showing;
-    panels[0].SetActive(showing);
     panels[currentPanel].SetActive(showing);
-    panels[5].SetActive(showing);
+    panels[5].SetActive(showing);    
     GetSelectablesAndActions(currentPanel);
 
     //Force UI selection update by switching selection twice (once isn't enough)
@@ -367,8 +443,7 @@ public class UIController : MonoBehaviour {
     SetSelected(0);
   }
 
-  public void ShowPanel(int i) {
-    // // print("Show Panel: " + i);
+  public void ShowPanel(int i) {    
     if (i == 0) { ToggleUI(); return; }
     if (currentPanel == i) { return; }
 
@@ -383,11 +458,11 @@ public class UIController : MonoBehaviour {
     currentItem = 0;
 
     if (currentPanel == 3 || currentPanel == 4 || !selectables.ContainsKey(currentPanel)) {
-      if (currentPanel == 3) {
-
-      }
-      GetSelectablesAndActions(currentPanel);
+      GetSelectablesAndActions(currentPanel);      
+    } else {
+      selectableTimers = new int[selectables[currentPanel].Count];
     }
+    
     SetSelected(currentItem);
     // // print("Selected: " + eventSystem.currentSelectedGameObject);
   }
@@ -473,7 +548,14 @@ public class UIController : MonoBehaviour {
   void AdjustSlider(int amt) {
     // print("AdjustSlider " + currentItem + " " + amt);
     Slider s = selectables[currentPanel][currentItem].GetComponent<Slider>();
-    s.value += amt;
+
+    if (amt == 0) {
+      s.value = 0;
+    } else {
+      s.value += amt;
+    }
+
+    // if (amt) {
 
     if (currentPanel == 2) {
       RotationSliders(currentItem,amt);
@@ -484,32 +566,30 @@ public class UIController : MonoBehaviour {
 
   void RotationSliders(int idx, int amt) {
     if (idx == 0) {
-      //Gantry X Axis
-
-    } else if (idx == 1) {
-      //Bed X Axis
-
-    } else if (idx == 2) {
-      //Bed Y Axis
-
-    } else if (idx == 3) {
-      //Bed Z Axis
-
-    } else if (idx == 4) {
-      //Bed Move LR
-
-    } else if (idx == 5) {
-      //Bed Move UD
-
-    } else if (idx == 6) {
-      //Bed Move FB
+      if (amt == 0) {
+        rc.ResetGantry();
+      } else {
+        rc.RotateGantry(amt);
+      }
+    } else if (idx > 0 && idx <= 3) {
+      if (amt == 0) {
+        rc.ResetBedRotation(idx-1);
+      } else {
+        rc.RotateBed(idx-1,amt);
+      }
+    } else if (idx > 3 && idx <= 6) {
+      if (amt == 0) {
+        rc.ResetBedMovement(idx-4);
+      } else {
+        rc.MoveBed(idx-4,amt);
+      }
     }
   }
 
   /** ================================================================================
     Change visibility of individual body parts by
     adjusting the alpha value of the shared material.
-    
+
     Some Issues:
     - Using the standard shader doesn't work as changing transparency at run time
       doesn't update the models, even though colour does. The problem is that
@@ -519,10 +599,10 @@ public class UIController : MonoBehaviour {
       is shared between all objects, so all body parts are the same colour + alpha.
     - This could be solved by creating many different materials in the editor, but
       each new model loaded needs a new set of materials. E.g. Lung set is 9 per model.
-      
+
     Solution:
     Use legacy transparency shader.
-  
+
   =================================================================================**/
   void VisibilitySliders(int idx, float amt) {
     amt = (amt / 255);
@@ -532,7 +612,7 @@ public class UIController : MonoBehaviour {
       idx2++;
       if (visControls[i].open) {
         if (idx2 + visControls[i].mats.Count >= idx) {
-          Material m = visControls[i].mats[idx - idx2];          
+          Material m = visControls[i].mats[idx - idx2];
           m.color = new Color(m.color.r,m.color.g,m.color.b,amt);
           return;
         }
@@ -551,18 +631,20 @@ public class UIController : MonoBehaviour {
     }
   }
 
-  //Toggle X-ray particle effect
+  //Toggle X-ray particle effect  
   void ToggleBeam() {
-    xc.Toggle();
-    if (xrayText.text.EndsWith("F")) {
-      xrayText.text = xrayText.text.Replace("OFF","ON");
-    } else {
-      xrayText.text = xrayText.text.Replace("ON","OFF");
+    if (allowXray) {
+      xc.Toggle();
+      if (xrayText.text.EndsWith("F")) {
+        xrayText.text = xrayText.text.Replace("OFF","ON");
+      } else {
+        xrayText.text = xrayText.text.Replace("ON","OFF");
+      }
     }
   }
 
-  void ChangePanel(int close) {
-    print("ChangePanel " + currentPanel + " " + currentItem + " " + close);
+  void ChangePanel(int close) {    
+    // print("ChangePanel " + currentPanel + " " + currentItem + " " + close);
     if (currentPanel == 3) {
       int idx2 = 2;
       for (int i = 0; i < visControls.Count; i++) {
@@ -604,11 +686,11 @@ public class UIController : MonoBehaviour {
   }
 
   void LoadModel(int idx) {
-    if (loadCounter == 0) {
-      fr.LoadModel(modControls[0].files[idx-1]);
+    // if (loadCounter == 0) {
+    fr.LoadModel(modControls[0].files[idx-1]);
       // print("Loading Model: " + modControls[0].files[idx-1]);
-      loadCounter = loadDelay;
-    }
+      // loadCounter = loadDelay;
+    // }
   }
 
   void RemoveModel(int idx) {
@@ -741,6 +823,14 @@ public class UIController : MonoBehaviour {
       acts.Add(n => RemoveModel(-1));
       selectables[4] = g;
       actions[4] = acts;
+    }
+    
+    selectableTimers = new int[selectables[currentPanel].Count];
+    
+    foreach (GameObject g in selectables[idx]) {
+      if (g.GetComponent<Slider>() && !g.name.StartsWith("Slider")) {
+        g.name = "Slider " + g.name;
+      }
     }
   }
 
@@ -983,7 +1073,8 @@ public class UIController : MonoBehaviour {
 
   GameObject CreateGameObject(GameObject target, Transform parent) {
     GameObject g = Instantiate(target) as GameObject;
-    g.transform.parent = parent;
+    // g.transform.parent = parent;
+    g.transform.SetParent(parent);
     g.transform.localScale = new Vector3(1,1,1);
     g.transform.localPosition = new Vector3(g.transform.localPosition.x, g.transform.localPosition.y,0);
     g.transform.localRotation = Quaternion.identity;
