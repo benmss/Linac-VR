@@ -13,6 +13,7 @@ public class RotationController : MonoBehaviour {
   public GameObject bedTopUnderside;
   public GameObject bedBaseUnderside;
   public GameObject isoCenter;
+  public GameObject bedZPivot;
 
   //Bed
   float bxRot;
@@ -65,7 +66,7 @@ public class RotationController : MonoBehaviour {
       //Z
       if (bzRot + amount > bzRotMax || bzRot + amount < -bzRotMax) { return; }
       // bedBaseUnderside.transform.Rotate(0,amount*.1f,0);
-      bedBaseUnderside.transform.RotateAround(bedTop.transform.position,bedBaseUnderside.transform.up,amount*.1f);
+      bedBaseUnderside.transform.RotateAround(bedZPivot.transform.position, bedBaseUnderside.transform.up, amount*.1f);
       bzRot += amount;
     }
   }
@@ -81,7 +82,7 @@ public class RotationController : MonoBehaviour {
       byRot = 0;
     } else if (direction == 2) {
       //Z
-      bedBaseUnderside.transform.RotateAround(bedTop.transform.position,bedBaseUnderside.transform.up,-bzRot*.1f);
+      bedBaseUnderside.transform.RotateAround(bedBase.transform.position,bedBaseUnderside.transform.up,-bzRot*.1f);
       bzRot = 0;
     }
   }

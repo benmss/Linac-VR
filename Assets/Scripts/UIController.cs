@@ -30,7 +30,7 @@ public class UIController : MonoBehaviour {
         ii. X axis rotation ( 3° max)
        iii. Z axis rotation ( 3° max)
         iv. Left/Right Movement
-         v. Up/Down Movement         
+         v. Up/Down Movement
         vi. Forward/Back Movement
 
     3. Visibility
@@ -90,9 +90,16 @@ public class UIController : MonoBehaviour {
   RectTransform[] rta = new RectTransform[2];
   Text laserText;
   Text xrayText;
-  
+
+  bool showHints = true;
+  bool showingHints = false;
+
+  Hand currentHand;
+  List<Hand> hands = new List<Hand>();
+  List<Transform> anchors = new List<Transform>();
+
   static int loadingCharLimit = 14;
-  
+
 
   float[] rotationSliderValues;
 
@@ -106,6 +113,11 @@ public class UIController : MonoBehaviour {
   public bool allowXray = true;
   public GameObject loadingText;
   public GameObject queueText;
+  public GameObject menuIndicator;
+  
+  int touchpadSelection = 0;
+  int touchpadCounterMax = 20;
+  int touchpadCounter = 0;
 
 
   public bool test = false;
@@ -139,7 +151,7 @@ public class UIController : MonoBehaviour {
 
     laserText = laserButton.transform.GetChild(0).GetComponent<Text>();
     xrayText = xrayButton.transform.GetChild(0).GetComponent<Text>();
-
+    
 
     fr = GameObject.Find("File Controller").GetComponent<FileReader>();
     rc = GameObject.Find("Rotation Controller").GetComponent<RotationController>();
@@ -193,92 +205,126 @@ public class UIController : MonoBehaviour {
     //Input handling
     if (!player || player.hands == null) { return; }
     foreach ( Hand hand in player.hands ) {
-      if (hand.startingHandType == Hand.HandType.Left) {
-        if (!hand) { continue; }
-        if (hand.controller == null) { continue; }
-        if (hand.controller.GetPressUp(SteamVR_Controller.ButtonMask.ApplicationMenu)) {
-          //App Menu Button
-          ToggleUI();
-          return;
-        }
+      if (!hand) { continue; }      
+      
 
-        if (!showing) { continue; }
+      // if (showing && hand != currentHand) { continue; }
+      if (hand.controller == null) { continue; }
 
-        //Trigger Button
-        if (hand.controller.GetHairTriggerUp()) {
-          if (showing) {
-            //Select Menu Item
-            // TriggerItem(currentItem);
-            ShowPanel(1);
-          } else {
-            //Interact with model
+      if (hand.controller.GetPressUp(SteamVR_Controller.ButtonMask.Grip)) {
+        showHints = !showHints;
+        continue;
+      }
 
-          }
-          return;
-        }
-        
-        if (hand.controller.GetPressUp(SteamVR_Controller.ButtonMask.Axis0)) {
-          TriggerItem(currentItem);
-          return;
-        }
-
-        // if (hand.controller.GetPressUp(SteamVR_Controller.ButtonMask.Grip)) {
-          //Grip Released
-          // ShowPanel(1);          
-          // return;
-        // }
-        
-        Vector2 v = hand.controller.GetAxis();
-
-        // bool b0 = hand.controller.GetPressUp(SteamVR_Controller.ButtonMask.Axis0);
-        
-
-        if (v.x > 0.5 && v.y < 0.5 && v.y > -0.5) {
-          //Right
-          TriggerItem(currentItem, 1);
-          return;
-        } else if (v.x < -0.5 && v.y < 0.5 && v.y > -0.5) {
-          //Left
-          TriggerItem(currentItem, -1);
-        } else if (v.y > 0.5 && v.x < 0.5 && v.x > -0.5) {
-          //Up
-          downCounter = 0;
-          if (upCounter < changeMax) {
-            upCounter++;
-
-            return;
-          }
-
-          changed = true;
-          SetSelected(currentItem-1);
-          upCounter = 0;
-        } else if (v.y < -0.5 && v.x < 0.5 && v.x > -0.5) {
-          //Down
-          upCounter = 0;
-          if (downCounter < changeMax) {
-            downCounter++;
-            return;
-          }
-          changed = true;
-          SetSelected(currentItem+1);
-          downCounter = 0;
+      if (hand.controller.GetPressUp(SteamVR_Controller.ButtonMask.ApplicationMenu)) {
+        //App Menu Button
+        if (!showing) {
+          currentHand = hand;
         } else {
-          //Neutral
-          if (downCounter > 0 && !changed) {
-            SetSelected(currentItem+1);
-          } else if (upCounter > 0 && !changed) {
-            SetSelected(currentItem-1);
-          }
-          upCounter = 0;
-          downCounter = 0;
-          changed = false;
+          currentHand = null;
         }
+        ToggleUI(hand);
+        showHints = false;
+        continue;
+      }
 
+      // if (!showing) { continue; }
+
+      //Trigger Button
+      if (hand.controller.GetHairTriggerUp()) {
+        if (showing && hand == currentHand) {
+          //Select Menu Item
+          // TriggerItem(currentItem);
+          ShowPanel(1);
+        } else {
+          //Interact with model
+          //#TODO
+        }
+        showHints = false;
+        continue;
+      }
+      
+      if (hand.controller.GetPressDown(SteamVR_Controller.ButtonMask.Axis0)) {        
+        showHints = false;        
+        // print("ShowHints: " + showHints);
+      }
+      
+      bool a1 = hand.controller.GetPressUp(SteamVR_Controller.ButtonMask.Axis0);
+      if (a1) { 
+        showHints = false;
+      }
+      
+      if (!showing) { continue; }
+      if (showing && hand != currentHand) { continue; }
+      
+
+      Vector2 v = hand.controller.GetAxis();      
+
+      // bool b0 = hand.controller.GetPressUp(SteamVR_Controller.ButtonMask.Axis0);
+
+      
+      if (v.x > 0.5 && v.y < 0.5 && v.y > -0.5) {
+        //Right
+        SetTouchpadIndicator(4);
+        TriggerItem(currentItem, 1);
+        showHints = false;        
+        continue;
+      } else if (v.x < -0.5 && v.y < 0.5 && v.y > -0.5) {
+        //Left
+        SetTouchpadIndicator(3);
+        TriggerItem(currentItem, -1);
+        showHints = false;
+        continue;
+      } else if (v.y > 0.5 && v.x < 0.5 && v.x > -0.5) {
+        //Up
+        SetTouchpadIndicator(1);
+        downCounter = 0;
+        if (upCounter < changeMax) {
+          upCounter++;                        
+          continue;
+        }
+        showHints = false;
+        changed = true;
+        SetSelected(currentItem-1);
+        upCounter = 0;
+      } else if (v.y < -0.5 && v.x < 0.5 && v.x > -0.5) {
+        //Down
+        SetTouchpadIndicator(2);
+        upCounter = 0;
+        if (downCounter < changeMax) {
+          downCounter++;            
+          continue;
+        }
+        showHints = false;
+        changed = true;
+        SetSelected(currentItem+1);
+        downCounter = 0;
+      } else {
+        //Neutral
+        bool a0 = hand.controller.GetPress(SteamVR_Controller.ButtonMask.Axis0);
+        if (!a0) {
+          SetTouchpadIndicator(0);
+        } else {
+          SetTouchpadIndicator(5);
+        }
+        
+        if (downCounter > 0 && !changed) {
+          SetSelected(currentItem+1);
+        } else if (upCounter > 0 && !changed) {
+          SetSelected(currentItem-1);
+        }
+        
+        if (a1) {
+          TriggerItem(currentItem);
+        }
+        upCounter = 0;
+        downCounter = 0;
+        changed = false;
       }
     }
   }
-  
-  public void UpdateLoadUI(string name, int queueSize) {    
+
+  public void UpdateLoadUI(string name, int queueSize) {
     if (name == "") {
       panels[6].SetActive(false);
     } else {
@@ -287,7 +333,7 @@ public class UIController : MonoBehaviour {
       //the start and last 3 chars of it are visible, as these
       //represent the model instance.
       string n1 = "";
-      if (name.Length > loadingCharLimit) {        
+      if (name.Length > loadingCharLimit) {
         for (int i = 0; i < loadingCharLimit - 3; i++) {
           n1 += name[i];
         }
@@ -300,7 +346,7 @@ public class UIController : MonoBehaviour {
       }
       loadingText.GetComponent<Text>().text = " Loading: " + n1;
     }
-    
+
     if (queueSize == 0) {
       panels[7].SetActive(false);
     } else {
@@ -384,16 +430,24 @@ public class UIController : MonoBehaviour {
   }
 
   void Update() {
-    //Debug code
-    if (currentPanel == 3) {
-      // Scrollbar sb = panels[3].transform.GetChild(1).GetChild(1).GetComponent<Scrollbar>();
-      // // print("Sb: " + sb.value);
-      // if (sb.value != 1) { sb.value = 1; }
-    }
-
     if (fixScrollbar) {
       UpdateScrollbar();
       fixScrollbar = false;
+    }
+    
+    if (touchpadCounter > 0) {
+      touchpadCounter--;
+      if (touchpadCounter == 0) {
+        SetTouchpadIndicator(0);        
+      }
+    }
+    
+    if (showHints && !showingHints) {
+      // print("Show Hints");
+      ShowHints(player.hands);
+    } else if (!showHints && showingHints) {
+      // print("Hide Hints");
+      HideHints(player.hands);
     }
 
     if (keyInput) { HandleKeyInput(); }
@@ -427,23 +481,111 @@ public class UIController : MonoBehaviour {
         // return;
       // }
     // }
-    
+
     actions[currentPanel][idx](amt);
   }
 
+  void ShowHints(Hand[] hands) {
+    int count = 0;
+    foreach (Hand hand in hands) {
+      if (hand == null) { continue; }
+      if (!hand.gameObject.activeInHierarchy) { continue; }
+      if (hand.controller == null) { continue; }
+      count++;
+      if (hand == currentHand) { continue; }      
+      ControllerButtonHints.ShowTextHint(hand, Valve.VR.EVRButtonId.k_EButton_ApplicationMenu, "Menu");
+      ControllerButtonHints.ShowTextHint(hand, Valve.VR.EVRButtonId.k_EButton_SteamVR_Trigger, "Grab");
+      ControllerButtonHints.ShowTextHint(hand, Valve.VR.EVRButtonId.k_EButton_SteamVR_Touchpad, "Teleport");
+      ControllerButtonHints.ShowTextHint(hand, Valve.VR.EVRButtonId.k_EButton_Grip, "Hints");
+      if (!string.IsNullOrEmpty( ControllerButtonHints.GetActiveHintText( hand, Valve.VR.EVRButtonId.k_EButton_SteamVR_Touchpad ))) {
+        showingHints = true;
+      }
+    }
+  }
+
+  void HideHints(Hand[] hands) {
+    // if (!showingHints) { return; }
+    foreach (Hand hand in hands) {
+      if (hand == null) { continue; }
+      ControllerButtonHints.HideTextHint(hand, Valve.VR.EVRButtonId.k_EButton_ApplicationMenu);
+      ControllerButtonHints.HideTextHint(hand, Valve.VR.EVRButtonId.k_EButton_SteamVR_Trigger);
+      ControllerButtonHints.HideTextHint(hand, Valve.VR.EVRButtonId.k_EButton_SteamVR_Touchpad);
+      ControllerButtonHints.HideTextHint(hand, Valve.VR.EVRButtonId.k_EButton_Grip);
+    }
+    showingHints = false;
+  }
+
+
+
+
+  public Hand GetCurrentHand() { return currentHand; }
+  public bool IsShowing() { return showing; }
+
   //Toggles visibility of UI and updates lists of interactable elements
-  public void ToggleUI() {    
+  public void ToggleUI(Hand hand = null) {
+    // print("ToggleUI: " + hand);
+    if (!showing && hand) {
+      //Place on correct hand
+      int handID = 0;
+      if (!hands.Contains(hand)) {
+        hands.Add(hand);
+        anchors.Add(hand.GetComponent<UIAnchor>().anchor);
+        handID = hands.Count-1;
+      } else {
+        for (int i = 0; i < hands.Count; i++) {
+          if (hands[i] == hand) {
+            handID = i;
+          }
+        }
+      }
+      currentHand = hands[handID];
+      panels[0].transform.position = anchors[handID].position;
+      panels[0].transform.SetParent(anchors[handID]);
+      panels[0].transform.rotation = anchors[handID].rotation;
+      // menuIndicator.transform.position = currentHand.transform.position + new Vector3(0,0.005f,-0.0498f);
+      menuIndicator.transform.parent = currentHand.transform;
+      menuIndicator.transform.localPosition = new Vector3(0,0.005f,-0.0498f);
+      
+      menuIndicator.transform.rotation = menuIndicator.transform.parent.rotation;
+      menuIndicator.transform.Rotate(new Vector3(83.25f,0,0));
+      menuIndicator.transform.localScale = new Vector3(0.04f,0.04f,1);
+      
+      
+    }
+
     showing = !showing;
+    menuIndicator.SetActive(showing);    
+    // if (showing) { 
+    SetTouchpadIndicator(0);
+    // }
+    // touchpadSelection = 0;
     panels[currentPanel].SetActive(showing);
-    panels[5].SetActive(showing);    
+    panels[5].SetActive(showing);
     GetSelectablesAndActions(currentPanel);
+
+
+
 
     //Force UI selection update by switching selection twice (once isn't enough)
     SetSelected(1);
-    SetSelected(0);
+    SetSelected(0);    
+    // showingHints = false;
+  }
+  
+  void SetTouchpadIndicator(int idx) {
+    if (touchpadSelection == idx) { return; }
+    for (int i = 0; i < menuIndicator.transform.childCount; i++) {
+      if (i != idx) {
+        menuIndicator.transform.GetChild(i).gameObject.SetActive(false);
+      } else {
+        menuIndicator.transform.GetChild(i).gameObject.SetActive(true);
+      }
+    }
+    touchpadSelection = idx;
+    touchpadCounter = touchpadCounterMax;
   }
 
-  public void ShowPanel(int i) {    
+  public void ShowPanel(int i) {
     if (i == 0) { ToggleUI(); return; }
     if (currentPanel == i) { return; }
 
@@ -458,11 +600,11 @@ public class UIController : MonoBehaviour {
     currentItem = 0;
 
     if (currentPanel == 3 || currentPanel == 4 || !selectables.ContainsKey(currentPanel)) {
-      GetSelectablesAndActions(currentPanel);      
+      GetSelectablesAndActions(currentPanel);
     } else {
       selectableTimers = new int[selectables[currentPanel].Count];
     }
-    
+
     SetSelected(currentItem);
     // // print("Selected: " + eventSystem.currentSelectedGameObject);
   }
@@ -631,7 +773,7 @@ public class UIController : MonoBehaviour {
     }
   }
 
-  //Toggle X-ray particle effect  
+  //Toggle X-ray particle effect
   void ToggleBeam() {
     if (allowXray) {
       xc.Toggle();
@@ -643,7 +785,7 @@ public class UIController : MonoBehaviour {
     }
   }
 
-  void ChangePanel(int close) {    
+  void ChangePanel(int close) {
     // print("ChangePanel " + currentPanel + " " + currentItem + " " + close);
     if (currentPanel == 3) {
       int idx2 = 2;
@@ -824,9 +966,9 @@ public class UIController : MonoBehaviour {
       selectables[4] = g;
       actions[4] = acts;
     }
-    
+
     selectableTimers = new int[selectables[currentPanel].Count];
-    
+
     foreach (GameObject g in selectables[idx]) {
       if (g.GetComponent<Slider>() && !g.name.StartsWith("Slider")) {
         g.name = "Slider " + g.name;

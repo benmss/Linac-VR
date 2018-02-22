@@ -67,7 +67,7 @@ public class FileReader : MonoBehaviour {
   public static bool printStopwatches = false;
   
   
-  BedSlot bs;
+  ObjectController oc;
   
   UIController uic;
   MarchingMeshCreator meshMarcherC;  
@@ -129,7 +129,7 @@ public class FileReader : MonoBehaviour {
   }
 
   void Start() {    
-    bs = bedSlot.GetComponent<BedSlot>();
+    oc = bedSlot.GetComponent<ObjectController>();
     uic = GameObject.Find("UI Controller").GetComponent<UIController>();
     // print(GameObject.Find("Wall").GetComponent<MeshRenderer>().material.shader.name);
     // Transform top = bed.transform.parent.parent;
@@ -184,7 +184,7 @@ public class FileReader : MonoBehaviour {
     models.Remove(s);
     if (slices.ContainsKey(s)) { slices.Remove(s); }
     if (slicePosition.ContainsKey(s)) { slicePosition.Remove(s); }
-    bs.CheckRemove(g);
+    oc.CheckRemove(g);
     modelNames.RemoveAt(idx);
     Destroy(g);
   }
@@ -217,7 +217,7 @@ public class FileReader : MonoBehaviour {
 	void Update () {
     if (rotate != null) {
       Transform t = null;
-      if (bs.IsFull()) {
+      if (oc.IsFull()) {
         t = bedBackup.transform;
       } else {
         t = bed.transform;
