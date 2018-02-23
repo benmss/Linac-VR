@@ -119,6 +119,7 @@ public class ModelLoader {
     Stopwatch swCPU = new Stopwatch();
     Stopwatch swMarch = new Stopwatch();
     FileStream fs = new FileStream(file.FullName, FileMode.Open, FileAccess.Read);
+    List<string> objectNames = new List<string>();
     int block = 0;
 
     List<Color> colours = new List<Color>();
@@ -131,6 +132,8 @@ public class ModelLoader {
     float zCounter = 0;
     float zLast = float.MinValue;
     bool zNew = true;
+    bool singlePoint = false;
+    Vector3 point = Vector3.zero;
 
     float xMin = float.MaxValue; float xMax = float.MinValue;
     float yMin = float.MaxValue; float yMax = float.MinValue;
@@ -177,7 +180,6 @@ public class ModelLoader {
       //Mesh for previous structure is created here, and related vars reset.
       if (block == 31 && tag == FileReader.S_COL) {
         block = 3;
-
         List<float> values = new List<float>();
         values.Add(xMin); values.Add(xMax);
         values.Add(yMin); values.Add(yMax);
@@ -187,17 +189,27 @@ public class ModelLoader {
         yMin = float.MaxValue; yMax = float.MinValue;
         zMin = float.MaxValue; zMax = float.MinValue;
 
+
         //Create mesh for current model and reset vars for the next
         if ((meshRangeOverride != -1 && models == meshRangeOverride) ||
         (meshRangeOverride == -1 && models >= meshRangeMin && models <= meshRangeMax)) {
           if (drawMesh) {
-            modelData.Add(MeshMaker.CreateModelData(zData,ranges[ranges.Count-1],meshMarcher,models,colours[colours.Count-1],swMarch,fname));
+            if (!singlePoint) {
+              // print("Model: " + model.model);
+              // print("Range: " + ranges.Count);
+              // print("Colours: " + colours.Count);              
+              modelData.Add(MeshMaker.CreateModelData(zData, ranges[ranges.Count-1], meshMarcher, models,
+                  colours[colours.Count-1], swMarch, ""));
+            } else {
+              modelData.Add(MeshMaker.CreateModelData(point, ""));
+            }
           }
         }
         zData = new List<List<List<Vector3>>>();
         sData = new List<List<Vector3>>();
         zNew = true;
         zCounter = 0;
+        singlePoint = false;
 
         models++;
       }
@@ -252,6 +264,7 @@ public class ModelLoader {
             current += c;
           }
         }
+        //Add last point
         p[pCounter] = float.Parse(current);
         points.Add(new Vector3(p[0],p[1],p[2]));
 
@@ -259,7 +272,7 @@ public class ModelLoader {
         if (vz < zMin) { zMin = vz; }
         if (vz > zMax) { zMax = vz; }
 
-        //Points are added lists to based on slice and structure data
+        //Points are added to lists based on slice and structure data
         //There can be multiple structures per slice (i.e. neck and arms)
         if (!zNew && vz != zLast) {
           zData.Add(sData);
@@ -268,6 +281,12 @@ public class ModelLoader {
 
           zCounter++;
           zLast = vz;
+        }
+
+        if (points.Count == 1) {
+          print(models + " Single Point: " + points[0]);
+          singlePoint = true;
+          point = points[0];
         }
 
         if (zNew) {
@@ -285,9 +304,33 @@ public class ModelLoader {
         continue;
       }
 
+      string nextTag = FileReader.GetNextTag(fs);
+      fs.Position -= 4;
+      if (nextTag == FileReader.S_BLOCK_TAG) {
+        fs.Position += FileReader.S_GAP;
+        continue;
+      }
+
+      if (nextTag == FileReader.S_BLOCK_TAG_2) {
+        fs.Position += FileReader.S_GAP_2;
+        continue;
+      }
+
+
+      // print("Tag: " + tag);
+      if (tag == FileReader.S_NAME) {
+        length = FileReader.GetNextLength(fs);
+        objectNames.Add(FileReader.GetData(fs,length));
+        continue;
+      }
+
       //Normal Tag
       length = FileReader.GetNextLength(fs);
       fs.Position += length;
+    }
+
+    for (int i = 0; i < objectNames.Count; i++) {
+      // print(objectNames[i]);
     }
 
 
@@ -303,8 +346,17 @@ public class ModelLoader {
     if ((meshRangeOverride != -1 && models == meshRangeOverride) ||
     (meshRangeOverride == -1 && models >= meshRangeMin && models <= meshRangeMax)) {
       if (drawMesh) {
-        modelData.Add(MeshMaker.CreateModelData(zData,ranges[ranges.Count-1],meshMarcher,models,colours[colours.Count-1],swMarch,fname));
+        if (!singlePoint) {
+          modelData.Add(MeshMaker.CreateModelData(zData, ranges[ranges.Count-1], meshMarcher, models,
+          colours[colours.Count-1], swMarch, ""));
+        } else {
+          modelData.Add(MeshMaker.CreateModelData(point, ""));
+        }        
       }
+    }
+    
+    for (int i = 0; i < modelData.Count; i++) {
+      modelData[i].name = objectNames[i];
     }
 
     sw.Stop();
@@ -312,6 +364,7 @@ public class ModelLoader {
     for (int i = 0; i < modelData.Count; i++) {
       if (i == 0) {
         modelData[i] = MeshMaker.MakeMesh(modelData[i], pixels, slicePos);
+        modelData[i].topName = fname;
       } else {
         modelData[i] = MeshMaker.MakeMesh(modelData[i], null, Vector3.zero);
       }

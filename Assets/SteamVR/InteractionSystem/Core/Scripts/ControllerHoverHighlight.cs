@@ -13,6 +13,7 @@ namespace Valve.VR.InteractionSystem
 	public class ControllerHoverHighlight : MonoBehaviour
 	{
 		public Material highLightMaterial;
+    public Material highLightMaterial2;
 		public bool fireHapticsOnHightlight = true;
 
 		private Hand hand;
@@ -21,6 +22,10 @@ namespace Valve.VR.InteractionSystem
 		private MeshRenderer trackingHatMeshRenderer;
 		private SteamVR_RenderModel renderModel;
 		private bool renderModelLoaded = false;
+    
+    private bool highlighted = false;
+    private bool altColour = false;
+   
 
 		SteamVR_Events.Action renderModelLoadedAction;
 
@@ -111,7 +116,7 @@ namespace Valve.VR.InteractionSystem
 
 			if ( other.transform.parent != transform.parent )
 			{
-				ShowHighlight();
+				// ShowHighlight();
 			}
 		}
 
@@ -119,7 +124,7 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		private void OnParentHandHoverEnd( Interactable other )
 		{
-			HideHighlight();
+			// HideHighlight();
 		}
 
 
@@ -133,7 +138,7 @@ namespace Valve.VR.InteractionSystem
 
 			if ( hand.hoveringInteractable && hand.hoveringInteractable.transform.parent != transform.parent )
 			{
-				ShowHighlight();
+				// ShowHighlight();
 			}
 		}
 
@@ -141,13 +146,27 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		private void OnParentHandInputFocusLost()
 		{
-			HideHighlight();
+			// HideHighlight();
 		}
+    
+    //-------------------------------------------------
+    public void SetHighlightColour(bool on) {
+      // print("On: " + on + ", altColour: " + altColour);
+      if (on && !altColour) {
+        bodyMeshRenderer.material = highLightMaterial2;
+        altColour = true;
+      } else if (!on && altColour) {
+        bodyMeshRenderer.material = highLightMaterial;
+        altColour = false;
+      }
+    }
 
 
 		//-------------------------------------------------
-		public void ShowHighlight()
+		public void ShowHighlight(bool on = false)
 		{
+      if (highlighted && altColour == on) { return; }
+      
 			if ( renderModelLoaded == false )
 			{
 				return;
@@ -167,12 +186,16 @@ namespace Valve.VR.InteractionSystem
 			{
 				trackingHatMeshRenderer.enabled = true;
 			}
+      highlighted = true;
+      SetHighlightColour(on);
 		}
 
 
 		//-------------------------------------------------
 		public void HideHighlight()
 		{
+      if (!highlighted) { return; }
+      
 			if ( renderModelLoaded == false )
 			{
 				return;
@@ -192,6 +215,8 @@ namespace Valve.VR.InteractionSystem
 			{
 				trackingHatMeshRenderer.enabled = false;
 			}
+      highlighted = false;
+      SetHighlightColour(false);
 		}
 	}
 }

@@ -16,6 +16,9 @@ public class MeshMaker {
     public List<MarchingMeshCreator.MeshData> meshData;
     public byte[,,] sliceData;
     public string name;
+    public bool point;
+    public Vector3 pointPosition;
+    public string topName;
   }
 
   public class Model {
@@ -26,7 +29,10 @@ public class MeshMaker {
     public byte[,,] sliceData;
     public int zMin;
     public GameObject top;
+    public Material laserMat;
   }
+  
+  public GameObject isoCube;
 
   static Vector3[] adjacent = {new Vector3(-1,0,0),new Vector3(1,0,0),new Vector3(0,-1,0),new Vector3(0,1,0)};
   public const int upper = 2;
@@ -78,6 +84,7 @@ public class MeshMaker {
 
   ================================================================================================== **/
   public static ModelData MakeMesh(ModelData model, int[,,] slicePixels, Vector3 slicePosition) {
+    if (model.point) { return model; }
     Stopwatch sw = new Stopwatch();
     Stopwatch swf = new Stopwatch();
     Stopwatch swb = new Stopwatch();
@@ -93,7 +100,7 @@ public class MeshMaker {
 
     int width = xMax - xMin;
     int height = yMax - yMin;
-    int depth = zMax - zMin;
+    int depth = zMax - zMin;    
 
     bool printOnce = false;
 
@@ -111,13 +118,17 @@ public class MeshMaker {
       yd = (int)Mathf.Round(model.dimensions[2] - slicePosition.y);
       zd = (int)Mathf.Round(model.dimensions[4] - slicePosition.z);
     }
-
-
+    
+    // int zCounter = 0;
+    // int sCounter = 0;
+    // int pCounter = 0;    
 
     //For each 2D slice (|Z| value)
     for (int z = 0; z < model.data.Count; z++) {
+      // zCounter++;
       //For each |S|tructure within a single 2D slice
       for (int s = 0; s < model.data[z].Count; s++) {
+        // sCounter++;
         //Apply Bresenham's 2D line algorithm and create Set of resulting points
         HashSet<Vector3> voxelPoints = new HashSet<Vector3>();
 
@@ -125,6 +136,7 @@ public class MeshMaker {
         swb.Start();
         //For each |P|oint in this structure
         for (int p = 0; p < model.data[z][s].Count; p++) {
+          // pCounter++;
           Vector3 v1 = model.data[z][s][p];
           Vector3 v2;
           if (p < model.data[z][s].Count - 1) {
@@ -201,6 +213,8 @@ public class MeshMaker {
         
       }
     }
+    
+    // print("Model " + model.model + " Counting - Z: " + zCounter + ", S: " + sCounter + ", P: " + pCounter);
 
     //Slices
     model.data = null;
@@ -286,7 +300,7 @@ public class MeshMaker {
     Stopwatch sw = new Stopwatch();    
     sw.Start();
     Model model = new Model();
-    GameObject top = new GameObject(name);
+    GameObject top = new GameObject(name);    
     top.layer = 12;
     model.top = top;
 
@@ -300,15 +314,31 @@ public class MeshMaker {
 
     for (int i = 0; i < modelData.Count; i++) {
       ModelData md = modelData[i];
+      
+      
+      //Marker or IsoCenter (Single Point)
+      if (md.point) {
+        GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        cube.transform.position = md.pointPosition;
+        cube.name = md.name;
+        cube.transform.parent = top.transform;
+        continue;
+      }
+      
       if (md.meshData == null) { continue; }
       if (md.meshData.Count == 0) { continue; }
-      GameObject mid = new GameObject ("Model " + i);
+      GameObject mid = new GameObject (md.name);
       mid.layer = 12;
       mid.transform.parent = top.transform;
       //Using legacy shader for adjustable transparency at runtime, see
       //UIController.VisibilitySliders for more info.
       Material mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse"));
       mat.SetColor("_Color", md.colour);
+      if (i == 0) {
+        Material mat2 = new Material(Shader.Find("Custom/LaserOverlay"));
+        mat2.SetColor("_Color", md.colour);
+        model.laserMat = mat2;
+      }
 
       gos.Add(mid);
       mats.Add(mat);
@@ -389,8 +419,16 @@ public class MeshMaker {
     }
   }
 
-
-  public static ModelData CreateModelData(List<List<List<Vector3>>> data, List<float> dimensions, MarchingMeshCreator meshMarcher, int model, Color colour, Stopwatch sw, string name) {
+  public static ModelData CreateModelData(Vector3 point, string name) {
+    ModelData m = new ModelData();
+    m.point = true;    
+    m.pointPosition = point;
+    m.name = name;
+    return m;
+  }
+  
+  public static ModelData CreateModelData(List<List<List<Vector3>>> data, List<float> dimensions, 
+              MarchingMeshCreator meshMarcher, int model, Color colour, Stopwatch sw, string name) {
     ModelData m = new ModelData();
     m.data = data;
     m.dimensions = dimensions;
@@ -402,8 +440,8 @@ public class MeshMaker {
     return m;
   }
 
-  public static void ScaleModel(Transform top, Transform pos, List<float> dimensions) {
-    top.Rotate(0,90,180);
+  public static void ScaleModel(Transform top, Transform pos, List<float> dimensions, GameObject isoCenter) {
+    
     top.transform.localScale = new Vector3(0.001f,0.001f,0.001f);
     top.transform.position = pos.transform.position;
     // top.transform.parent = pos;
@@ -413,6 +451,17 @@ public class MeshMaker {
     float depth = dimensions[5] - dimensions[4];
     b.size = new Vector3(width,height,depth*5);
     Rigidbody rb = top.gameObject.AddComponent<Rigidbody>();
+    top.gameObject.AddComponent<Valve.VR.InteractionSystem.Interactable>();
+    MeshFilter mf = top.gameObject.AddComponent<MeshFilter>();
+    mf.mesh = isoCenter.GetComponent<MeshFilter>().mesh;    
+    top.parent = pos;
+    top.rotation = pos.rotation;
+    top.Rotate(0,-90,90);
+    // top.gameObject.AddComponent<MeshFilter>(mf);
+    // MeshFilter mf = new MeshFilter();
+    // mf.
+    // top.gameObject.AddComponent<MeshFilter>();
+    
     rb.mass = 5;
     rb.drag = 0.5f;
 

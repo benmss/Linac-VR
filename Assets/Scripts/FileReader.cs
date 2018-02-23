@@ -38,7 +38,7 @@ public class FileReader : MonoBehaviour {
 
   [Header("File Path")]
   public string pathToData;
-  
+
   [Header("Slice Viewer")]
   public GameObject transverse;
   public GameObject coronal;
@@ -60,39 +60,42 @@ public class FileReader : MonoBehaviour {
   public int meshRangeMax = 1;
   [Range(-1,20)]
   public int meshRangeOverride = 0;
-  
+  [Range(0,5)]
+  public int preloadModels = 1;
+  public GameObject isoCenter;
+
 
   static Thread mainThread = Thread.CurrentThread;
-  
+
   public static bool printStopwatches = false;
-  
-  
+
+
   ObjectController oc;
-  
+
   UIController uic;
-  MarchingMeshCreator meshMarcherC;  
+  MarchingMeshCreator meshMarcherC;
   Dictionary<string,MeshMaker.Model> models = new Dictionary<string,MeshMaker.Model>();
   Dictionary<string,int[,,]> slices = new Dictionary<string,int[,,]>();
   Dictionary<string,Vector3> slicePosition = new Dictionary<string,Vector3>();
-  List<string> modelNames = new List<string>();  
-  
+  List<string> modelNames = new List<string>();
+
   LinkedList<DoubleString> loadQueue = new LinkedList<DoubleString>();
   bool loadingModel = false;
   bool loadingModelDone = false;
   bool loadingModelChange = false;
   string loadingModelName = "";
-  
-  
+
+
   public static List<MeshMaker.ModelData> modelData;
-  
-  bool testMainThread = false;  
-  
+
+  bool testMainThread = false;
+
   struct DoubleString {
     public DoubleString(string s1, string s2) {
       this.s1 = s1;
       this.s2 = s2;
     }
-    
+
     public string s1;
     public string s2;
   }
@@ -100,14 +103,14 @@ public class FileReader : MonoBehaviour {
   string ModelNameGenerator(string filePath) {
     //Get folder name from path
     string fname = new DirectoryInfo(filePath).Name;
-    
+
     int count = 0;
     while (models.ContainsKey(fname + " #" + count)) {
       count++;
     }
     fname += " #" + count;
     models.Add(fname,new MeshMaker.Model());
-    return fname;    
+    return fname;
   }
 
   public List<string> FindLoadableFolders() {
@@ -115,7 +118,7 @@ public class FileReader : MonoBehaviour {
     string defaultPath = "../..";
     if (pathToData != "") {
       defaultPath = pathToData;
-    }    
+    }
     List<string> files = new List<string>();
 
     //To be loadable a folder must contain an RT structure file.
@@ -128,8 +131,8 @@ public class FileReader : MonoBehaviour {
     return files;
   }
 
-  void Start() {    
-    oc = bedSlot.GetComponent<ObjectController>();
+  void Start() {
+    oc = GameObject.Find("Object Controller").GetComponent<ObjectController>();
     uic = GameObject.Find("UI Controller").GetComponent<UIController>();
     // print(GameObject.Find("Wall").GetComponent<MeshRenderer>().material.shader.name);
     // Transform top = bed.transform.parent.parent;
@@ -138,23 +141,23 @@ public class FileReader : MonoBehaviour {
     // print("Bed: " + bounds);
     // return;
 
-    for (int i = 0; i < 0; i++) {
+    for (int i = 0; i < preloadModels; i++) {
       string s = "";
       // if (i % 2 == 0) {
-        s = "./LUNG DICOM DATA";
+        s = "../../LUNG DICOM DATA";
       // } else {
         // s = "../../PELVIS DICOM DATA";
       // }
-      LoadModel(s);      
+      LoadModel(s);
     }
   }
-  
+
 /** ==============================================================================
 
     Creates a new thread and reads files from passed string (a folder).
     This data is then processed by various called methods, eventually
     producing mesh data via Marching Cubes.
-    
+
     Parameter:
     filePath - name of folder that contains Dicom image and RT_Structure files.
 
@@ -162,29 +165,29 @@ public class FileReader : MonoBehaviour {
   public void LoadModel(string filePath) {
     //Generate unique name for new model made from passed file
     string fname = ModelNameGenerator(filePath);
-    
+
     loadQueue.AddLast(new DoubleString(filePath,fname));
     loadingModelChange = true;
   }
-  
+
 	private void LoadModel (string filePath, string fname) {
     ModelLoader ml = new ModelLoader(filePath, fname, meshRangeOverride, meshRangeMin, meshRangeMax, drawMesh);
     ml.LoadModel();
 	}
-  
+
   public void RemoveAllModels() {
     while (modelNames.Count != 0) {
       RemoveModel(0);
     }
   }
 
-  public void RemoveModel (int idx) {    
+  public void RemoveModel (int idx) {
     string s = modelNames[idx];
     GameObject g = models[s].top;
     models.Remove(s);
     if (slices.ContainsKey(s)) { slices.Remove(s); }
     if (slicePosition.ContainsKey(s)) { slicePosition.Remove(s); }
-    oc.CheckRemove(g);
+    oc.RemoveObject(g);
     modelNames.RemoveAt(idx);
     Destroy(g);
   }
@@ -201,18 +204,18 @@ public class FileReader : MonoBehaviour {
 
 
 	/** ========================================================================
-    
+
     Update is used primarily to trigger the next step of the model creation
-    process. While the bulk of the work is done in non main threads. Work 
+    process. While the bulk of the work is done in non main threads. Work
     with Unity classes like meshes, gameObjects, etc., must be done in the
     main thread.
-    
+
     The next step is triggered whenever a non main thread sets a
     MeshMaker.ModelData collection to the static variable modelData.
     This also sets an event on the next update to correct the orientation
     of the produced model, which must be done on the next frame.
-    
-  
+
+
   ==========================================================================**/
 	void Update () {
     if (rotate != null) {
@@ -222,23 +225,29 @@ public class FileReader : MonoBehaviour {
       } else {
         t = bed.transform;
       }
-      MeshMaker.ScaleModel(rotate,t,models[rotate.gameObject.name].dimensions[0]);
+      MeshMaker.ScaleModel(rotate,t,models[rotate.gameObject.name].dimensions[0],isoCenter);
       rotate = null;
     }
-    
-    
-    
+
+
+
     if (!loadingModel && loadQueue.Count > 0) {
       loadingModel = true;
       loadingModelDone = false;
       loadingModelChange = false;
       DoubleString ds = loadQueue.First.Value;
       loadQueue.RemoveFirst();
-      
+
       //Avoid running this method on the Unity main thread.
-      Thread t = new Thread(() => LoadModel(ds.s1, ds.s2));
+      Thread t = new Thread(() => {
+        try {
+          LoadModel(ds.s1, ds.s2);
+        } catch (Exception e) {
+          print(e);
+        }
+      });
       t.Start();
-      
+
       loadingModelName = ds.s2;
       uic.UpdateLoadUI(ds.s2,loadQueue.Count);
     } else if (loadingModelChange) {
@@ -246,12 +255,12 @@ public class FileReader : MonoBehaviour {
       uic.UpdateLoadUI(loadingModelName,loadQueue.Count);
     }
 
-    if (FileReader.modelData != null) {      
+    if (FileReader.modelData != null) {
       Stopwatch sw = new Stopwatch();
       sw.Start();
       List<MeshMaker.ModelData> mdl = FileReader.modelData;
       FileReader.modelData = null;
-      MeshMaker.Model m = MeshMaker.CreateModel(mdl,mdl[0].name);
+      MeshMaker.Model m = MeshMaker.CreateModel(mdl,mdl[0].topName);
       models[m.name] = m;
       modelNames.Add(m.name);
       MeshMaker.FixPositions(models[m.name].dimensions,models[m.name].models[0].transform.parent.gameObject);
@@ -563,13 +572,13 @@ public class FileReader : MonoBehaviour {
     fs.Read(b,0,4);
     return b[1].ToString("X2") + b[0].ToString("X2") + "," + b[3].ToString("X2") + b[2].ToString("X2");
   }
-  
+
   public static int GetNextLength(FileStream fs) {
     Byte[] b = new Byte[4];
     fs.Read(b,0,4);
     return b[3] * hexMod[3] + b[2] * hexMod[2] + b[1] * hexMod[1] + b[0];
   }
-  
+
   public static string GetData(FileStream fs, int length) {
     Byte[] bytes = new Byte[length];
     fs.Read(bytes,0,length);
@@ -580,6 +589,9 @@ public class FileReader : MonoBehaviour {
     return s;
   }
 
+  //Info taken from:
+  //
+  
   //Tags
   public const string ROWS = "0028,0010";
   public const string COLS = "0028,0011";
@@ -589,6 +601,10 @@ public class FileReader : MonoBehaviour {
   public const string HPIX = "0028,0107";
   public const string PPOS = "0020,0032";
 
+  //Tag info found at:
+  //ftp://medical.nema.org/medical/dicom/final/sup11_ft.pdf
+  
+  
   //Structure Data
   public const int S_GAP = 12;
   public const int S_GAP_2 = 16;
@@ -599,6 +615,10 @@ public class FileReader : MonoBehaviour {
   public const string S_BLOCK_TAG_2 = "FFFE,E00D"; //+12
   public const string S_COL = "3006,002A";
   public const string S_DATA = "3006,0050";
+  
+   
+  public const string S_NAME = "3006,0085"; //Name of structure object
+  
 
   //Structure Containers (Sequences)
   public const string S_1 = "3006,0010"; //Referenced Frame of Reference Sequence
@@ -610,6 +630,13 @@ public class FileReader : MonoBehaviour {
 
   public const string S_6 = "3006,0039"; //ROI Contour Sequence
   public const string S_7 = "3006,0040"; //Contour Sequence
+  
+  //ROI Sequences
+  public const string S_ROI_1 = "3006,0080"; //ROI Observation Sequence 
+  public const string S_ROT_2 = "3006,0086"; //ROI Relationship
+  public const string S_ROI_3 = "3006,00B0"; //ROI Physical Properties Sequence
+  
+  
 
   public const int ARGB32 = 4;
 

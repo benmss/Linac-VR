@@ -60,6 +60,7 @@ public class UIController : MonoBehaviour {
   RotationController rc;
   LaserController lc;
   XrayController xc;
+  ObjectController oc;
 
   List<VisControl> visControls = new List<VisControl>();
   ModControl[] modControls = new ModControl[2];
@@ -97,6 +98,11 @@ public class UIController : MonoBehaviour {
   Hand currentHand;
   List<Hand> hands = new List<Hand>();
   List<Transform> anchors = new List<Transform>();
+  bool[] heldObject = new bool[2];
+  ControllerHoverHighlight[] controllerHighlights = new ControllerHoverHighlight[2];
+  bool[] grabHint = new bool[2];
+  
+
 
   static int loadingCharLimit = 14;
 
@@ -114,7 +120,7 @@ public class UIController : MonoBehaviour {
   public GameObject loadingText;
   public GameObject queueText;
   public GameObject menuIndicator;
-  
+
   int touchpadSelection = 0;
   int touchpadCounterMax = 20;
   int touchpadCounter = 0;
@@ -151,8 +157,9 @@ public class UIController : MonoBehaviour {
 
     laserText = laserButton.transform.GetChild(0).GetComponent<Text>();
     xrayText = xrayButton.transform.GetChild(0).GetComponent<Text>();
-    
 
+
+    oc = GameObject.Find("Object Controller").GetComponent<ObjectController>();
     fr = GameObject.Find("File Controller").GetComponent<FileReader>();
     rc = GameObject.Find("Rotation Controller").GetComponent<RotationController>();
     lc = GameObject.Find("Laser Controller").GetComponent<LaserController>();
@@ -203,13 +210,19 @@ public class UIController : MonoBehaviour {
 
   void HandleControllerInput() {
     //Input handling
+    int h = -1;
     if (!player || player.hands == null) { return; }
     foreach ( Hand hand in player.hands ) {
-      if (!hand) { continue; }      
-      
+      h++;
+      if (!hand) { continue; }
 
       // if (showing && hand != currentHand) { continue; }
       if (hand.controller == null) { continue; }
+
+      // if (heldObject[h]) {
+        // oc.ConstrainObject(heldObject[h], hand, heldObjectAnchor[h]);
+      // }
+
 
       if (hand.controller.GetPressUp(SteamVR_Controller.ButtonMask.Grip)) {
         showHints = !showHints;
@@ -218,6 +231,7 @@ public class UIController : MonoBehaviour {
 
       if (hand.controller.GetPressUp(SteamVR_Controller.ButtonMask.ApplicationMenu)) {
         //App Menu Button
+        if (heldObject[0] || heldObject[1]) { continue; }
         if (!showing) {
           currentHand = hand;
         } else {
@@ -238,36 +252,58 @@ public class UIController : MonoBehaviour {
           ShowPanel(1);
         } else {
           //Interact with model
-          //#TODO
+          if (heldObject[h]) {
+            //Release
+            oc.RemoveConstrainedObject(hand.transform);
+            heldObject[h] = false;
+            // heldObject[h].GetComponent<Rigidbody>().isKinematic = false;
+            // heldObject[h].transform.parent = null;
+            // heldObject[h] = null;
+          } else {
+            if (hand.hoveringInteractable) {
+              //Pickup
+              oc.AddConstrainedObject(hand.hoveringInteractable.gameObject, hand.transform, 
+                hand.hoveringInteractable.transform.position - hand.transform.position);
+              heldObject[h] = true;
+              if (showing) { 
+                currentHand = null;
+                ToggleUI();
+              }
+              // heldObject[h] = hand.hoveringInteractable.gameObject;
+              // heldObject[h].transform.parent = hand.hoveringInteractable.transform;
+              // heldObjectAnchor[h] = heldObject[h].transform.position - hand.transform.position;
+              // heldObject[h].GetComponent<Rigidbody>().isKinematic = false;
+            }
+          }
         }
         showHints = false;
         continue;
       }
-      
-      if (hand.controller.GetPressDown(SteamVR_Controller.ButtonMask.Axis0)) {        
-        showHints = false;        
+
+      if (hand.controller.GetPressDown(SteamVR_Controller.ButtonMask.Axis0)) {
+        showHints = false;
         // print("ShowHints: " + showHints);
       }
-      
+
       bool a1 = hand.controller.GetPressUp(SteamVR_Controller.ButtonMask.Axis0);
-      if (a1) { 
+      if (a1) {
         showHints = false;
       }
-      
+
       if (!showing) { continue; }
       if (showing && hand != currentHand) { continue; }
-      
 
-      Vector2 v = hand.controller.GetAxis();      
+
+      Vector2 v = hand.controller.GetAxis();
 
       // bool b0 = hand.controller.GetPressUp(SteamVR_Controller.ButtonMask.Axis0);
 
-      
+
       if (v.x > 0.5 && v.y < 0.5 && v.y > -0.5) {
         //Right
         SetTouchpadIndicator(4);
         TriggerItem(currentItem, 1);
-        showHints = false;        
+        showHints = false;
         continue;
       } else if (v.x < -0.5 && v.y < 0.5 && v.y > -0.5) {
         //Left
@@ -280,7 +316,7 @@ public class UIController : MonoBehaviour {
         SetTouchpadIndicator(1);
         downCounter = 0;
         if (upCounter < changeMax) {
-          upCounter++;                        
+          upCounter++;
           continue;
         }
         showHints = false;
@@ -292,7 +328,7 @@ public class UIController : MonoBehaviour {
         SetTouchpadIndicator(2);
         upCounter = 0;
         if (downCounter < changeMax) {
-          downCounter++;            
+          downCounter++;
           continue;
         }
         showHints = false;
@@ -307,13 +343,13 @@ public class UIController : MonoBehaviour {
         } else {
           SetTouchpadIndicator(5);
         }
-        
+
         if (downCounter > 0 && !changed) {
           SetSelected(currentItem+1);
         } else if (upCounter > 0 && !changed) {
           SetSelected(currentItem-1);
         }
-        
+
         if (a1) {
           TriggerItem(currentItem);
         }
@@ -434,14 +470,50 @@ public class UIController : MonoBehaviour {
       UpdateScrollbar();
       fixScrollbar = false;
     }
-    
+
     if (touchpadCounter > 0) {
       touchpadCounter--;
       if (touchpadCounter == 0) {
-        SetTouchpadIndicator(0);        
+        SetTouchpadIndicator(0);
       }
     }
+
     
+    for (int i = 0; i < player.hands.Length; i++) {
+      if (player.hands[i] == null || player.hands[i].controller == null) { continue; }
+      //Check highlight is set
+      if (controllerHighlights[i] == null) {
+        controllerHighlights[i] = player.hands[i].gameObject.GetComponentInChildren<ControllerHoverHighlight>();
+      }
+      
+      if (controllerHighlights[i] == null) { continue; }
+      
+      
+      if (heldObject[i]) {
+        //Holding an object => green
+        controllerHighlights[i].ShowHighlight(true);
+        if (grabHint[i]) {
+          ControllerButtonHints.HideTextHint(player.hands[i], Valve.VR.EVRButtonId.k_EButton_SteamVR_Trigger);
+          grabHint[i] = false;
+        }        
+      } else if (player.hands[i].hoveringInteractable != null && player.hands[i] != currentHand) {
+        if (!grabHint[i]) {
+          ControllerButtonHints.ShowTextHint(player.hands[i], Valve.VR.EVRButtonId.k_EButton_SteamVR_Trigger, "Grab: " + player.hands[i].hoveringInteractable.name);
+          grabHint[i] = true;
+        }
+        //Hovering over an object => yellow
+        controllerHighlights[i].ShowHighlight(false);        
+      } else {
+        //Nothing happening => hide
+        controllerHighlights[i].HideHighlight();        
+        if (grabHint[i]) {
+          ControllerButtonHints.HideTextHint(player.hands[i], Valve.VR.EVRButtonId.k_EButton_SteamVR_Trigger);
+          grabHint[i] = false;
+        }
+      }
+    }
+
+
     if (showHints && !showingHints) {
       // print("Show Hints");
       ShowHints(player.hands);
@@ -492,7 +564,8 @@ public class UIController : MonoBehaviour {
       if (!hand.gameObject.activeInHierarchy) { continue; }
       if (hand.controller == null) { continue; }
       count++;
-      if (hand == currentHand) { continue; }      
+      if (heldObject[count-1]) { continue; }
+      if (hand == currentHand) { continue; }
       ControllerButtonHints.ShowTextHint(hand, Valve.VR.EVRButtonId.k_EButton_ApplicationMenu, "Menu");
       ControllerButtonHints.ShowTextHint(hand, Valve.VR.EVRButtonId.k_EButton_SteamVR_Trigger, "Grab");
       ControllerButtonHints.ShowTextHint(hand, Valve.VR.EVRButtonId.k_EButton_SteamVR_Touchpad, "Teleport");
@@ -545,17 +618,17 @@ public class UIController : MonoBehaviour {
       // menuIndicator.transform.position = currentHand.transform.position + new Vector3(0,0.005f,-0.0498f);
       menuIndicator.transform.parent = currentHand.transform;
       menuIndicator.transform.localPosition = new Vector3(0,0.005f,-0.0498f);
-      
+
       menuIndicator.transform.rotation = menuIndicator.transform.parent.rotation;
       menuIndicator.transform.Rotate(new Vector3(83.25f,0,0));
       menuIndicator.transform.localScale = new Vector3(0.04f,0.04f,1);
-      
-      
+
+
     }
 
     showing = !showing;
-    menuIndicator.SetActive(showing);    
-    // if (showing) { 
+    menuIndicator.SetActive(showing);
+    // if (showing) {
     SetTouchpadIndicator(0);
     // }
     // touchpadSelection = 0;
@@ -568,10 +641,10 @@ public class UIController : MonoBehaviour {
 
     //Force UI selection update by switching selection twice (once isn't enough)
     SetSelected(1);
-    SetSelected(0);    
+    SetSelected(0);
     // showingHints = false;
   }
-  
+
   void SetTouchpadIndicator(int idx) {
     if (touchpadSelection == idx) { return; }
     for (int i = 0; i < menuIndicator.transform.childCount; i++) {
@@ -765,7 +838,7 @@ public class UIController : MonoBehaviour {
 
   //Toggle Lasers
   void ToggleLasers() {
-    lc.Toggle();
+    lc.ToggleLasers();
     if (laserText.text.EndsWith("F")) {
       laserText.text = laserText.text.Replace("OFF","ON");
     } else {
