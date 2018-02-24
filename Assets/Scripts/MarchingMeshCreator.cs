@@ -6,11 +6,11 @@ using System;
 
 public class MarchingMeshCreator : MonoBehaviour {
 
-  public int seed = 0;  
+  public int seed = 0;
 
   public class MeshData {
     public List<Vector3> verts;
-    public List<int> indices;    
+    public List<int> indices;
   }
 
   // float sizeThreshold = 250000;
@@ -19,6 +19,7 @@ public class MarchingMeshCreator : MonoBehaviour {
   int threadCount = 0;
 
   List<GameObject> meshes = new List<GameObject>();
+  // List<Thread> threads = new List<Thread>();
 
   public List<MeshData> CreateMesh(float[] voxels, int width, int height, int depth, int models) {
     MarchingCubes2 mc2 = new MarchingCubes2();
@@ -225,45 +226,58 @@ public class MarchingMeshCreator : MonoBehaviour {
     bool done = false;
     while (true) {
       int idx = meshDataCounter;
-
-      for (int i = 0; i < 3; i++) {
-        if (vertDict.ContainsKey(meshData[meshDataNumber].verts[idx+i])) {
-          indices.Add(vertDict[meshData[meshDataNumber].verts[idx+i]]);
-        } else {
-          verts.Add(meshData[meshDataNumber].verts[idx+i]);
-          totalVertCount++;
-          indices.Add(lastIndex);
-          vertDict.Add(meshData[meshDataNumber].verts[idx+i],lastIndex);
-          lastIndex++;
+      // print("MeshData[" + meshDataNumber + "].verts.Count: " + (meshData[meshDataNumber].verts.Count) + ", idx: " + idx + ", Total: " + totalIndexMax);
+      
+      
+      if (meshData[meshDataNumber].verts.Count != 0) {
+        for (int i = 0; i < 3; i++) {
+          if (vertDict.ContainsKey(meshData[meshDataNumber].verts[idx+i])) {
+            indices.Add(vertDict[meshData[meshDataNumber].verts[idx+i]]);
+          } else {
+            verts.Add(meshData[meshDataNumber].verts[idx+i]);
+            totalVertCount++;
+            indices.Add(lastIndex);
+            vertDict.Add(meshData[meshDataNumber].verts[idx+i],lastIndex);
+            lastIndex++;
+          }
         }
-      }
 
-      if (done) { break; }
+        if (done) { break; }
 
-      indexCount+= 3;
-      meshDataCounter += 3;
-      totalIndexCount += 3;
+        indexCount+= 3;
+        meshDataCounter += 3;
+        totalIndexCount += 3;
 
-      bool next = false;
+        bool next = false;
 
-      if (indexCount >= maxVertsPerMesh) {
-        MeshData m = new MeshData();
-        m.verts = verts;
-        m.indices = indices;
-        meshes.Add(m);
-        verts = new List<Vector3>();
-        indices = new List<int>();
-        vertDict = new Dictionary<Vector3,int>();
+        if (indexCount >= maxVertsPerMesh) {
+          MeshData m = new MeshData();
+          m.verts = verts;
+          m.indices = indices;
+          meshes.Add(m);
+          verts = new List<Vector3>();
+          indices = new List<int>();
+          vertDict = new Dictionary<Vector3,int>();
 
-        meshCount++;
-        lastIndex = 0;
-        indexCount = 0;
+          meshCount++;
+          lastIndex = 0;
+          indexCount = 0;
+        }
       }
 
       if (meshDataCounter >= meshData[meshDataNumber].verts.Count) {
         meshDataNumber++;
+        bool doneCheck = false;
+        if (meshDataNumber >= meshData.Count) { 
+          doneCheck = true;
+        } else {
+          while (meshDataNumber < meshData.Count && meshDataNumber < nThreads && meshData[meshDataNumber].verts.Count == 0) {
+            meshDataNumber++;
+          }
+        }
+
         meshDataCounter = 0;
-        if (meshDataNumber >= nThreads) {
+        if (doneCheck || meshDataNumber >= nThreads) {
           //Done
           MeshData m = new MeshData();
           m.verts = verts;
@@ -273,7 +287,7 @@ public class MarchingMeshCreator : MonoBehaviour {
         }
       }
     }
-    
+
     return meshes;
   }
 }

@@ -6,6 +6,8 @@ using System.Diagnostics;
 
 public class MeshMaker {
 
+  public static int zScale = 1;
+
   public class ModelData {
     public List<List<List<Vector3>>> data;
     public List<float> dimensions;
@@ -19,6 +21,7 @@ public class MeshMaker {
     public bool point;
     public Vector3 pointPosition;
     public string topName;
+    public float zMin;
   }
 
   public class Model {
@@ -31,13 +34,13 @@ public class MeshMaker {
     public GameObject top;
     public Material laserMat;
   }
-  
+
   public GameObject isoCube;
 
   static Vector3[] adjacent = {new Vector3(-1,0,0),new Vector3(1,0,0),new Vector3(0,-1,0),new Vector3(0,1,0)};
   public const int upper = 2;
   public const int lower = 2;
-  
+
   static Stopwatch swf1 = new Stopwatch();
   static Stopwatch swf2 = new Stopwatch();
   static Stopwatch swf3 = new Stopwatch();
@@ -100,28 +103,50 @@ public class MeshMaker {
 
     int width = xMax - xMin;
     int height = yMax - yMin;
-    int depth = zMax - zMin;    
+    int depth = zMax - zMin;
 
     bool printOnce = false;
 
-    byte[] sliceData = null;
-    byte[,,] sliceData2 = null;
+    // print("WHD  : " + width + "/" + height + "/" + depth);
+    // print("XYZ L: " + xMin + "/" + yMin + "/" + zMin);
+    // print("XYZ H: " + xMax + "/" + yMax + "/" + zMax);
+    // print("Z    : " + model.data.Count);
+
+
+    //Z slices, S structures, P points
+    // for (int z = 0; z < model.data.Count; z++) {
+      // HashSet<float> zValues = new HashSet<float>();
+      // for (int s = 0; s < model.data[z].Count; s++) {
+        // for (int p = 0; p < model.data[z][s].Count; p++) {
+          // zValues.Add(model.data[z][s][p].z);
+        // }
+      // }
+
+      // string sz = "";
+      // foreach (float zzz in zValues) {
+        // sz += zzz + ", ";
+      // }
+      // print("Z values at z=" + z + " : " + sz);
+    // }
+
+    // byte[] sliceData = null;
+    // byte[,,] sliceData2 = null;
     float[] pixels = new float[width * height * depth];
     int xd = 0, yd = 0, zd = 0;
-    if (model.model == 0) {
-      sliceData = new byte[width * height * depth];
-      int w2 = slicePixels.GetLength(0);
-      int h2 = slicePixels.GetLength(1);
-      int d2 = slicePixels.GetLength(2);
-      sliceData2 = new byte[w2,h2,d2];
-      xd = (int)Mathf.Round(model.dimensions[0] - slicePosition.x);
-      yd = (int)Mathf.Round(model.dimensions[2] - slicePosition.y);
-      zd = (int)Mathf.Round(model.dimensions[4] - slicePosition.z);
-    }
-    
+    // if (model.model == 0) {
+      // sliceData = new byte[width * height * depth];
+      // int w2 = slicePixels.GetLength(0);
+      // int h2 = slicePixels.GetLength(1);
+      // int d2 = slicePixels.GetLength(2);
+      // sliceData2 = new byte[w2,h2,d2];
+      // xd = (int)Mathf.Round(model.dimensions[0] - slicePosition.x);
+      // yd = (int)Mathf.Round(model.dimensions[2] - slicePosition.y);
+      // zd = (int)Mathf.Round(model.dimensions[4] - slicePosition.z);
+    // }
+
     // int zCounter = 0;
     // int sCounter = 0;
-    // int pCounter = 0;    
+    // int pCounter = 0;
 
     //For each 2D slice (|Z| value)
     for (int z = 0; z < model.data.Count; z++) {
@@ -132,7 +157,7 @@ public class MeshMaker {
         //Apply Bresenham's 2D line algorithm and create Set of resulting points
         HashSet<Vector3> voxelPoints = new HashSet<Vector3>();
 
-        
+
         swb.Start();
         //For each |P|oint in this structure
         for (int p = 0; p < model.data[z][s].Count; p++) {
@@ -152,7 +177,7 @@ public class MeshMaker {
           }
         }
         swb.Stop();
-        
+
 
         swn.Start();
         //Find original point that has a neighbour within bounds of structure and fill volume from it
@@ -187,13 +212,19 @@ public class MeshMaker {
             int idx = ((int)Mathf.Round(v.x - xMin)) +
                       ((int)Mathf.Round(v.y - yMin)) * width +
                       ((int)Mathf.Round(v.z)) * width * height;
-            pixels[idx] = 1;
+            try {
+              pixels[idx] = 1;
+            } catch (Exception e) {
+              UnityEngine.Debug.LogError("Idx: " + idx + ", pix: " + pixels.Length + " | " + v.x + "," + v.y + "," + (v.z));
+              UnityEngine.Debug.Log(e);
+              return model;
+            }
             if (model.model == 0) {
               int ix = (int)Mathf.Round(v.x - xMin + xd);
               int iy = (int)Mathf.Round(v.y - yMin + yd);
               // int iz = (int)Mathf.Round(v.z - zMin - zd);
               int iz = (int)Mathf.Round(v.z)-1;
-              sliceData2[ix,iy,iz] = 1;
+              // sliceData2[ix,iy,iz] = 1;
               // sliceData[idx] = 1;
               if (!printOnce) {
                 // UnityEngine.Debug.Log(v + " -> (" + ix + "," + iy + "," + iz + ") | " +
@@ -210,20 +241,20 @@ public class MeshMaker {
           //Terminate loop
           break;
         }
-        
+
       }
     }
-    
+
     // print("Model " + model.model + " Counting - Z: " + zCounter + ", S: " + sCounter + ", P: " + pCounter);
 
     //Slices
     model.data = null;
     if (model.model == 0) {
-      model.sliceData = sliceData2;
+      // model.sliceData = sliceData2;
     }
-    
+
     sw.Stop();
-    
+
     model.sw.Start();
     model.meshData = model.meshMarcher.CreateMesh(pixels,width,height,depth,model.model);
 
@@ -232,13 +263,13 @@ public class MeshMaker {
     // m.CreateMesh(pixels,width,height,depth,model.model);
 
     model.sw.Stop();
-    
-    
+
+
     FileReader.printStopwatch(swf2,"Floodfill - Fill: ");
     FileReader.printStopwatch(swf3,"Floodfill - Fix: ");
     FileReader.printStopwatch(swf4,"Floodfill - Convert: ");
     FileReader.printStopwatch(swf1,"Floodfill - Other: ");
-    
+
     FileReader.printStopwatch(model.sw,"MeshMaker CreateMesh - Marching: ");
     FileReader.printStopwatch(swb,"MeshMaker CreateMesh - Bresenham: ");
     FileReader.printStopwatch(swn,"MeshMaker CreateMesh - Neighbour: ");
@@ -257,34 +288,54 @@ public class MeshMaker {
   ======================================================= **/
   public static void FixPositions(List<List<float>> ranges, GameObject meshMarcher) {
     Transform t0 = meshMarcher.transform.GetChild(0);
+    print("Top: " + meshMarcher.name);
     Vector3 center = Vector3.zero;
+    
+    int xMin = int.MaxValue; int xMax = int.MinValue;
+    int yMin = int.MaxValue; int yMax = int.MinValue;
+    int zMin = int.MaxValue; int zMax = int.MinValue;
+    
+    
+    for (int i = 0; i < ranges.Count; i++) {
+      List<float> dimensions = ranges[i];
+      xMin = (int)(Mathf.Round(Mathf.Min(xMin,dimensions[0]-lower)));
+      xMax = (int)(Mathf.Round(Mathf.Max(xMax,dimensions[1]+upper)));
+      yMin = (int)(Mathf.Round(Mathf.Min(yMin,dimensions[2]-lower)));
+      yMax = (int)(Mathf.Round(Mathf.Max(yMax,dimensions[3]+upper)));
+      zMin = (int)(Mathf.Round(Mathf.Min(zMin,dimensions[4]-lower)));
+      zMax = (int)(Mathf.Round(Mathf.Max(zMax,dimensions[5]+upper)));
+    }
+    int width = xMax - xMin;
+    int height = yMax - yMin;
+    int depth = zMax - zMin;
+    Vector3 half = new Vector3(width*.5f,height*.5f,depth*.5f);
+    center = new Vector3(xMin + half.x, yMin + half.y, zMin + half.z);
+    
+    
+    
     for (int i = 0; i < ranges.Count; i++) {
       List<float> dimensions = ranges[i];
 
       Transform t = meshMarcher.transform.GetChild(i);
       if (t.childCount == 0) { continue; }
 
-      int xMin = (int)Mathf.Round(dimensions[0]-lower);
-      int xMax = (int)Mathf.Round(dimensions[1]+upper);
-      int yMin = (int)Mathf.Round(dimensions[2]-lower);
-      int yMax = (int)Mathf.Round(dimensions[3]+upper);
-      int zMin = (int)Mathf.Round(dimensions[4]-lower);
-      int zMax = (int)Mathf.Round(dimensions[5]+upper);
+      int xMin2 = (int)Mathf.Round(dimensions[0]-lower);
+      int xMax2 = (int)Mathf.Round(dimensions[1]+upper);
+      int yMin2 = (int)Mathf.Round(dimensions[2]-lower);
+      int yMax2 = (int)Mathf.Round(dimensions[3]+upper);
+      int zMin2 = (int)Mathf.Round(dimensions[4]-lower);
+      int zMax2 = (int)Mathf.Round(dimensions[5]+upper);
 
-      int width = xMax - xMin;
-      int height = yMax - yMin;
-      int depth = zMax - zMin;
+      int width2 = xMax2 - xMin2;
+      int height2 = yMax2 - yMin2;
+      int depth2 = zMax2 - zMin2;
 
-      if (i == 0) {
-        Vector3 half = new Vector3(width*.5f,height*.5f,depth*.5f);
-        center = new Vector3(xMin + half.x, yMin + half.y, zMin + half.z);
-      } else {
-        Vector3 target = new Vector3(xMin,yMin,zMin);
-        Vector3 half = new Vector3(width*.5f,height*.5f,depth*.5f);
-        target += half;
-        target -= center;
-        t.transform.position = target;
-      }
+      
+      Vector3 target = new Vector3(xMin2,yMin2,zMin2);
+      Vector3 half2 = new Vector3(width2*.5f,height2*.5f,depth2*.5f);
+      target += half2;
+      target -= center;
+      t.transform.position = target;
     }
 
     // for (int i = 1; i < meshMarcher.transform.childCount;) {
@@ -297,10 +348,10 @@ public class MeshMaker {
   }
 
   public static Model CreateModel(List<ModelData> modelData, string name) {
-    Stopwatch sw = new Stopwatch();    
+    Stopwatch sw = new Stopwatch();
     sw.Start();
     Model model = new Model();
-    GameObject top = new GameObject(name);    
+    GameObject top = new GameObject(name);
     top.layer = 12;
     model.top = top;
 
@@ -309,13 +360,16 @@ public class MeshMaker {
 
     List<GameObject> gos = new List<GameObject>();
     List<Material> mats = new List<Material>();
-    List<List<float>> dims = new List<List<float>>();
-    // List<HashSet<Vector3>> sliceData = new List<HashSet<Vector3>>();
+    List<List<float>> dims = new List<List<float>>();    
+
+    //Create list of markers and iso centers in model
+    Dictionary<Vector3,int> pointCounter = new Dictionary<Vector3,int>();
+
 
     for (int i = 0; i < modelData.Count; i++) {
       ModelData md = modelData[i];
-      
-      
+
+
       //Marker or IsoCenter (Single Point)
       if (md.point) {
         GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -324,7 +378,7 @@ public class MeshMaker {
         cube.transform.parent = top.transform;
         continue;
       }
-      
+
       if (md.meshData == null) { continue; }
       if (md.meshData.Count == 0) { continue; }
       GameObject mid = new GameObject (md.name);
@@ -378,7 +432,7 @@ public class MeshMaker {
     model.mats = mats;
     model.dimensions = dims;
 
-    // FileReader.printStopwatch(sw, "CreateModel: ");    
+    // FileReader.printStopwatch(sw, "CreateModel: ");
     return model;
   }
 
@@ -390,8 +444,10 @@ public class MeshMaker {
     float yMin = float.MaxValue; float yMax = float.MinValue;
     float zMin = float.MaxValue; float zMax = float.MinValue;
 
+    Bounds bounds = new Bounds();
+
     for (int i = 0; i < mid.transform.childCount; i++) {
-      mid.transform.localScale = new Vector3(1,1,5);
+      mid.transform.localScale = new Vector3(1,1,zScale);
       MeshFilter mf = mid.transform.GetChild(i).GetComponent<MeshFilter>();
       if (!mf) { continue; }
 
@@ -416,18 +472,27 @@ public class MeshMaker {
     // Update mesh positions
     for (int i = 0; i < mid.transform.childCount; i++) {
       mid.transform.GetChild(i).localPosition = new Vector3(-center.x,-center.y,-center.z);
+      MeshFilter mf = mid.transform.GetChild(i).GetComponent<MeshFilter>();
+      if (!mf) { continue; }
+      Bounds bb = mf.mesh.bounds;
+      bounds.Encapsulate(bb);
     }
+
+    BoxCollider bc = mid.gameObject.AddComponent<BoxCollider>();
+    bc.isTrigger = true;
+    bc.size = bounds.size;
+    // bc.center = center;
   }
 
   public static ModelData CreateModelData(Vector3 point, string name) {
     ModelData m = new ModelData();
-    m.point = true;    
+    m.point = true;
     m.pointPosition = point;
     m.name = name;
     return m;
   }
-  
-  public static ModelData CreateModelData(List<List<List<Vector3>>> data, List<float> dimensions, 
+
+  public static ModelData CreateModelData(List<List<List<Vector3>>> data, List<float> dimensions,
               MarchingMeshCreator meshMarcher, int model, Color colour, Stopwatch sw, string name) {
     ModelData m = new ModelData();
     m.data = data;
@@ -441,27 +506,43 @@ public class MeshMaker {
   }
 
   public static void ScaleModel(Transform top, Transform pos, List<float> dimensions, GameObject isoCenter) {
-    
-    top.transform.localScale = new Vector3(0.001f,0.001f,0.001f);
-    top.transform.position = pos.transform.position;
-    // top.transform.parent = pos;
-    BoxCollider b = top.gameObject.AddComponent<BoxCollider>();
-    float width = dimensions[1] - dimensions[0];
-    float height = dimensions[3] - dimensions[2];
-    float depth = dimensions[5] - dimensions[4];
-    b.size = new Vector3(width,height,depth*5);
+
+    float xMin = float.MaxValue; float xMax = float.MinValue;
+    float yMin = float.MaxValue; float yMax = float.MinValue;
+    float zMin = float.MaxValue; float zMax = float.MinValue;
+
+    //Create collider for model and adjust to match children
+    Bounds bounds = new Bounds(Vector2.zero,Vector2.zero);
+    for (int i = 0; i < top.childCount; i++) {
+      Transform t = top.GetChild(i);
+      BoxCollider bc = t.gameObject.GetComponent<BoxCollider>();
+      if (!bc) { continue; }      
+      Bounds bb = bc.bounds;      
+      bounds.Encapsulate(bb.max);
+      bounds.Encapsulate(bb.min);      
+      xMin = Mathf.Min(xMin,bb.min.x);
+      xMax = Mathf.Max(xMax,bb.max.x);
+      yMin = Mathf.Min(yMin,bb.min.y);
+      yMax = Mathf.Max(yMax,bb.max.y);
+      zMin = Mathf.Min(zMin,bb.min.z);
+      zMax = Mathf.Max(zMax,bb.max.z);
+      GameObject.Destroy(bc);
+    }    
+    Vector3 center = new Vector3((xMin+xMax)*.5f,(yMin+yMax)*.5f,(zMin+zMax)*.5f);    
+    BoxCollider bbc = top.gameObject.AddComponent<BoxCollider>();
+    bbc.size = bounds.size;
+    bbc.center = center;
+
+    top.localScale = new Vector3(0.001f,0.001f,0.001f);
+    top.position = pos.transform.position;
+    top.parent = pos;
+
     Rigidbody rb = top.gameObject.AddComponent<Rigidbody>();
     top.gameObject.AddComponent<Valve.VR.InteractionSystem.Interactable>();
-    MeshFilter mf = top.gameObject.AddComponent<MeshFilter>();
-    mf.mesh = isoCenter.GetComponent<MeshFilter>().mesh;    
     top.parent = pos;
     top.rotation = pos.rotation;
     top.Rotate(0,-90,90);
-    // top.gameObject.AddComponent<MeshFilter>(mf);
-    // MeshFilter mf = new MeshFilter();
-    // mf.
-    // top.gameObject.AddComponent<MeshFilter>();
-    
+
     rb.mass = 5;
     rb.drag = 0.5f;
 
@@ -470,7 +551,11 @@ public class MeshMaker {
 
 
   static bool InsideStructure(Vector3 point, List<Vector3> structure) {
-    if (structure[0] != structure[structure.Count-1]) { UnityEngine.Debug.LogError("V mismatch"); }
+    if (structure[0] != structure[structure.Count-1]) {
+      // UnityEngine.Debug.LogWarning("V Mismatch - Duplicating first point of list to end");
+      structure.Add(structure[0]);
+    }
+    // if (structure[0] != structure[structure.Count-1]) { UnityEngine.Debug.LogError("V mismatch"); }
     // return InPoly(point,structure) != 0;
     return InPoly2(point,structure) != 0 && InPoly(point,structure) != 0;
   }
@@ -515,7 +600,7 @@ public class MeshMaker {
 
   //Slightly better flood fill method
   //Uses a byte array to represent pixels, faster to read and set at the cost of increased mem usage
-  static List<Vector3> FloodFill2(Vector3 start, HashSet<Vector3> points, List<float> dimensions) {    
+  static List<Vector3> FloodFill2(Vector3 start, HashSet<Vector3> points, List<float> dimensions) {
     swf1.Start();
     List<Vector3> p = new List<Vector3>();
     LinkedList<Vector3> targetPoints = new LinkedList<Vector3>();
@@ -589,10 +674,10 @@ public class MeshMaker {
       }
     }
     swf4.Stop();
-    
+
     return p;
   }
-  
+
   static List<Vector3> FloodFill3(Vector3 start, HashSet<Vector3> points, List<float> dimensions, Vector3[] data) {
     List<Vector3> p = new List<Vector3>();
     LinkedList<Vector3> targetPoints = new LinkedList<Vector3>();

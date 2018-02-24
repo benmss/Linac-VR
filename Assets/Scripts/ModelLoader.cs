@@ -11,7 +11,7 @@ using UnityEngine;
 
 public class ModelLoader {
 
-  string filePath;
+  FileInfo file;
   string fname;
 
   int[,,] pixels;
@@ -23,15 +23,16 @@ public class ModelLoader {
 
   bool drawMesh;
 
-  float zMod = 0.2f;
+  // float zMod = 0.2f;
+  // float zMod = 1/3f;
 
   Vector3 slicePos;
 
   MarchingMeshCreator meshMarcher = new MarchingMeshCreator();
 
 
-  public ModelLoader(string filePath, string fname, int meshRangeOverride, int meshRangeMin, int meshRangeMax, bool drawMesh) {
-    this.filePath = filePath;
+  public ModelLoader(FileInfo file, string fname, int meshRangeOverride, int meshRangeMin, int meshRangeMax, bool drawMesh) {
+    this.file = file;
     this.fname = fname;
     this.meshRangeOverride = meshRangeOverride;
     this.meshRangeMin = meshRangeMin;
@@ -40,70 +41,9 @@ public class ModelLoader {
   }
 
   public void LoadModel() {
-    FileInfo[] files = FileReader.GetFilesFromFolder(filePath);
-    files = FileReader.GetSortedImages(files);
-
-    //Determine size of pixel array, x and y from 2D image slice, z from number of slices
-    int[] dim = FileReader.GetDimensions(files[0]);
-    x = dim[0]; y = dim[1];
-    foreach (FileInfo f in files) {
-      if (f.Name.StartsWith("CT")) {
-        z++;
-      }
-    }
-    print("Loading Model: " + fname + " | " + x + "," + y + "," + z + " | " + dim[3] + "/" + dim[2]);
-    pixels = new int[dim[0],dim[1],z];
-    // pixelList = new List<List<Vector2>>();
-    // pHalf = (int)Math.Pow(2,dim[2]-1);
-    // pFull = (int)Math.Pow(2,dim[2]);
-
-    // if (dim[3] == 1) { signed = true; }
-    // pMin = (signed ? -pHalf : 0);
-    // pMax = (signed ? -pMin - 1 : pFull);
-    voxels = new int[x,y,z];
-
-    //If the pixel bit format within the Dicom file is not 16 bit,
-    //problems might arise, i.e. it is untested.
-    if (dim[2] != 16) {
-      UnityEngine.Debug.LogError("Pixel Bits: " + dim[2]);
-      return;
-    }
-
-    //Read file data, images and RT_Structure
-    int count = 0;
-    List<FileInfo> rtFiles = new List<FileInfo>();
-    foreach (FileInfo f in files) {
-      if (f.Name.StartsWith("RT")) {
-        rtFiles.Add(f);
-        continue;
-      }
-      // print("Reading file: " + f.Name);
-      string s = FileReader.GetPixels(f, ref pixels, x, y, count);
-      if (s != "") {
-        string[] split = s.Split('\\');
-        float vx = Mathf.Round(float.Parse(split[0]));
-        float vy = Mathf.Round(float.Parse(split[1]));
-        float vz = Mathf.Round(float.Parse(split[2]));
-        slicePos = new Vector3(vx,vy,vz);
-      }
-      count++;
-    }
-
-    foreach (FileInfo f in rtFiles) {
-      if (f.Name.Contains("Structure")) {
-        Stopwatch sw = new Stopwatch();
-        sw.Start();
-        LoadStructureSet(f,fname);
-        sw.Stop();
-        FileReader.printStopwatch(sw,"Thread: ");
-      } else if (f.Name.Contains("Plan")) {
-        // LoadPlan(f);
-      } else if (f.Name.Contains("Dose")) {
-        // LoadDose(f);
-      }
-    }
-
+    LoadStructureSet(file,fname);
   }
+
 
   /** ======================================================
 
@@ -140,46 +80,114 @@ public class ModelLoader {
     float zMin = float.MaxValue; float zMax = float.MinValue;
     int models = 0;
 
+    HashSet<string> sequenceBlocks = FileReader.GetSequenceBlocks();
+    Dictionary<int,string> nameList = new Dictionary<int,string>();
+    List<int> structNumbers = new List<int>();
+    int currentNumber = 0;
+
+    bool zDistFound = false;
+    float zMod = 1;
+    float zH1 = 0;
+    float zH2 = 0;
+    float zState = 0;
+
+
     sw.Start();
     sw2.Start();
+
+    //General process of reading the DICOM files:
+    //0. Some DICOM files seem to contain unknown header information in a non tag format
+    //   To skip past this data, we search for a signpost to normality. In other words
+    //   one of the following tags: "0008,0005" "0008,0016" "0008,0018"
+    //   If none of these can be found we bail after some number of characters, as
+    //   we have no hope of accomplishing anything in the unknown location we are in.
+
+    //1. Skip all non relevant tags
+    //   These are of the type - Tag 4 bytes, Length 4 bytes, Data Length bytes
+    //
+    //2. Some tags denote sequences or encapsulated data
+    //   There are two main types - Tag 4 bytes, Length 4 bytes, <Data>
+    //                            - Tag 4 bytes, Length 4 bytes, <Data>, Tag 4 bytes, Length 4 bytes
+    //   These tags have to be checked carefully as <Data> represents a series of type 1. tags
+    //   Method used here is to skip reading the data portion when a sequence tag is found
+    //   Checked against FileReader.S_1, S_2, etc.
+    //
+    //3. The data we actually we want is found using the colour tag: "3006,002A"
+    //   A colour tag is followed by a data tag: "3006,0050" and the pixel data it contains
+    //
+    //4. Once the first colour tag is found, each subsequent colour tag becomes a new structure object.
+    //
+    //5. Lastly, the file contains a list of names that match the structure objects previously found.
+    //   The tag for these is "3006,0085". The list is in the same order as the structures.
+    int bailLimit = 500;
+    bool started = false;
     while (fs.Position < fs.Length && fs.Position >= 0) {
       string tag = FileReader.GetNextTag(fs);
       int length;
 
-      if (tag == FileReader.S_1 || tag == FileReader.S_2 || tag == FileReader.S_3 || tag == FileReader.S_4) {
-        if (block == 0) { block = 1; }
-        fs.Position += FileReader.S_GAP;
-        continue;
-      }
-
-      if (tag == FileReader.S_BLOCK_TAG) {
-        fs.Position += FileReader.S_GAP - 4;
-        continue;
-      }
-
-      if (tag == FileReader.S_BLOCK_TAG_2) {
-        fs.Position += FileReader.S_GAP_2 - 4;
-        continue;
-      }
-
-      if (tag == FileReader.S_5) {
-        if (block == 1) {
-          block = 2;
+      if (!started) {
+        if (tag == FileReader.S_SP_1 || tag == FileReader.S_SP_2 || tag == FileReader.S_SP_3) {
+          started = true;
+          length = FileReader.GetNextLength(fs);
+          fs.Position += length;
+          continue;
+        } else {
+          if (fs.Position >= bailLimit) {
+            //Failed to load this file
+            Logger.Log("Failed to load model from file: " + file.FullName);
+            break;
+          }
+          if (tag != "0000,0000") {
+            // string tag0 = FileReader.GetNextTag(fs);
+            // fs.Position -= 4;
+            // print("Tag: " + tag + " " + tag0);
+          }
+          fs.Position -= 3;
+          bailLimit += 1;
           continue;
         }
       }
 
-      if (tag == FileReader.S_6) {
-        if (block == 2) {
-          block = 3;
-          continue;
+      if (tag == FileReader.S_ID_0) {
+        fs.Position += 4;
+        length = 2;
+        currentNumber = FileReader.GetDataIntString(fs,length);
+        continue;
+      }
+
+      if (tag == FileReader.S_NAME_0) {
+        length = FileReader.GetNextLength(fs);
+        string s = FileReader.GetData(fs,length);
+        nameList.Add(currentNumber,s);
+        // print("Added Number/Name: " + currentNumber + ", " + s);
+        continue;
+      }
+
+      if (tag == FileReader.S_DATA_ID) {
+        fs.Position += 4;
+        length = 2;
+        int n = FileReader.GetDataIntString(fs,2);
+        if (structNumbers.Count <= models) {
+          structNumbers.Add(n);
+          // print("Added Struct Number: " + structNumbers[structNumbers.Count-1]);
         }
+        continue;
+      }
+
+      if (sequenceBlocks.Contains(tag)) {
+        fs.Position += 4;
+        continue;
+      }
+
+      if (tag == "FFFF,FFFF") {
+        //Blank tag
+        continue;
       }
 
       //A new structure entry denoted by a colour tag (2nd object onwards)
       //Mesh for previous structure is created here, and related vars reset.
-      if (block == 31 && tag == FileReader.S_COL) {
-        block = 3;
+      if (block == 12 && tag == FileReader.S_COL) {
+        block = 0;
         List<float> values = new List<float>();
         values.Add(xMin); values.Add(xMax);
         values.Add(yMin); values.Add(yMax);
@@ -195,9 +203,6 @@ public class ModelLoader {
         (meshRangeOverride == -1 && models >= meshRangeMin && models <= meshRangeMax)) {
           if (drawMesh) {
             if (!singlePoint) {
-              // print("Model: " + model.model);
-              // print("Range: " + ranges.Count);
-              // print("Colours: " + colours.Count);              
               modelData.Add(MeshMaker.CreateModelData(zData, ranges[ranges.Count-1], meshMarcher, models,
                   colours[colours.Count-1], swMarch, ""));
             } else {
@@ -215,7 +220,7 @@ public class ModelLoader {
       }
 
       //Read colour of structure
-      if (block == 3 && tag == FileReader.S_COL) {
+      if ((block == 0 || block == 11) && tag == FileReader.S_COL) {
         length = FileReader.GetNextLength(fs);
         byte[] bytes = new byte[length];
         fs.Read(bytes,0,length);
@@ -223,24 +228,26 @@ public class ModelLoader {
         foreach (byte b in bytes) {
           s += (char)b;
         }
+        // print("Colour found: " + s + " | " + (fs.Position-(8+length)));
         string[] ss = s.Split('\\');
-
         Color c = new Color(float.Parse(ss[0])/255,float.Parse(ss[1])/255,float.Parse(ss[2])/255);
-        colours.Add(c);
+        if (block == 11) {
+          // colours[colours.Count-1] = c;
+        } else {
+          block = 11;
+          colours.Add(c);
+          // print("Colour added: " + s);
+        }
         continue;
+
       }
 
-      //Preparation for structure contour data (other tag removal)
-      if (tag == FileReader.S_7) {
-        if (block == 3) {
-          block = 31;
-          continue;
-        }
-      }
 
       //Read structure contour data
-      if (block == 31 && tag == FileReader.S_DATA) {
+      if ((block == 11 || block == 12) && tag == FileReader.S_DATA) {
+        if (block == 11) { block = 12; }
         length = FileReader.GetNextLength(fs);
+        // print("Data found: " + length + " | " + (fs.Position-(8)));
         byte[] bytes = new byte[length];
 
         //Read and add points to list
@@ -269,6 +276,7 @@ public class ModelLoader {
         points.Add(new Vector3(p[0],p[1],p[2]));
 
         float vz = points[0].z * zMod;
+
         if (vz < zMin) { zMin = vz; }
         if (vz > zMax) { zMax = vz; }
 
@@ -281,10 +289,17 @@ public class ModelLoader {
 
           zCounter++;
           zLast = vz;
+          if (zState == 0) {
+            zH1 = vz;
+            zState = 1;
+          } else if (zState == 1) {
+            zH2 = vz;
+            zState = 2;
+          }
         }
 
         if (points.Count == 1) {
-          print(models + " Single Point: " + points[0]);
+          // print(models + " Single Point: " + points[0]);
           singlePoint = true;
           point = points[0];
         }
@@ -304,33 +319,16 @@ public class ModelLoader {
         continue;
       }
 
-      string nextTag = FileReader.GetNextTag(fs);
-      fs.Position -= 4;
-      if (nextTag == FileReader.S_BLOCK_TAG) {
-        fs.Position += FileReader.S_GAP;
-        continue;
-      }
-
-      if (nextTag == FileReader.S_BLOCK_TAG_2) {
-        fs.Position += FileReader.S_GAP_2;
-        continue;
-      }
-
-
-      // print("Tag: " + tag);
-      if (tag == FileReader.S_NAME) {
-        length = FileReader.GetNextLength(fs);
-        objectNames.Add(FileReader.GetData(fs,length));
-        continue;
-      }
 
       //Normal Tag
       length = FileReader.GetNextLength(fs);
       fs.Position += length;
     }
 
+
+
     for (int i = 0; i < objectNames.Count; i++) {
-      // print(objectNames[i]);
+      print(objectNames[i]);
     }
 
 
@@ -342,6 +340,7 @@ public class ModelLoader {
     ranges.Add(values2);
 
     models++;
+    print(file.Name + " read: " + colours.Count + " colours, " + models + " models");
     //Create mesh for final model
     if ((meshRangeOverride != -1 && models == meshRangeOverride) ||
     (meshRangeOverride == -1 && models >= meshRangeMin && models <= meshRangeMax)) {
@@ -351,20 +350,39 @@ public class ModelLoader {
           colours[colours.Count-1], swMarch, ""));
         } else {
           modelData.Add(MeshMaker.CreateModelData(point, ""));
-        }        
+        }
       }
     }
-    
+
+
+
     for (int i = 0; i < modelData.Count; i++) {
-      modelData[i].name = objectNames[i];
+      string s = "Unknown " + i;
+      if (nameList.ContainsKey(structNumbers[i])) {
+        s = nameList[structNumbers[i]];
+      }
+      modelData[i].name = s;
     }
+
+
+    //Apply z scaling
+    int zScale = (int)Mathf.Round(Mathf.Abs(zH2 - zH1));
+    float zScaleF = 1/(float)zScale;
+    MeshMaker.zScale = zScale;
+    print("zScale: " + zScale + ", " + zScaleF + " zH1: " + zH1);
+
 
     sw.Stop();
     sw2.Start();
     for (int i = 0; i < modelData.Count; i++) {
+      if (modelData[i].dimensions != null) {
+        modelData[i].dimensions[4] *= zScaleF;
+        modelData[i].dimensions[5] *= zScaleF;
+      }
       if (i == 0) {
         modelData[i] = MeshMaker.MakeMesh(modelData[i], pixels, slicePos);
         modelData[i].topName = fname;
+        modelData[i].zMin = zH1 * zScale;
       } else {
         modelData[i] = MeshMaker.MakeMesh(modelData[i], null, Vector3.zero);
       }

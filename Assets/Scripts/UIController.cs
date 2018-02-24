@@ -902,10 +902,11 @@ public class UIController : MonoBehaviour {
 
   void LoadModel(int idx) {
     // if (loadCounter == 0) {
-    fr.LoadModel(modControls[0].files[idx-1]);
+    // fr.LoadModel(modControls[0].files[idx-1]);
       // print("Loading Model: " + modControls[0].files[idx-1]);
       // loadCounter = loadDelay;
     // }
+    fr.LoadModel(idx-1);
   }
 
   void RemoveModel(int idx) {
@@ -1077,7 +1078,8 @@ public class UIController : MonoBehaviour {
       float bHeight = 24;
       for (int i = 0; i < vc.mats.Count; i++) {
         GameObject b = CreateGameObject(block,p.transform);
-        b.transform.GetChild(0).GetChild(0).GetComponent<Text>().text = (i+1) + "";
+        // b.transform.GetChild(0).GetChild(0).GetComponent<Text>().text = (i+1) + "";
+        b.transform.GetChild(0).GetChild(0).GetComponent<Text>().text = m.models[i].name;
         RectTransform rt = b.GetComponent<RectTransform>();
         rt.offsetMin = new Vector2(0,bStart-bHeight);
         rt.offsetMax = new Vector2(0,bStart);
@@ -1168,7 +1170,7 @@ public class UIController : MonoBehaviour {
     GameObject block = Resources.Load("Prefab/Model Control Block") as GameObject;
 
     //Find loadable folders
-    List<string> files = fr.FindLoadableFolders();
+    List<string> files = fr.GetLoadableFiles();
     //Find currently loaded models
     List<MeshMaker.Model> models = fr.GetModels();
 
@@ -1186,18 +1188,20 @@ public class UIController : MonoBehaviour {
 
     float height = 20;
     float bStart = -18;
-    float bHeight = 15;
-
-    for (int i = 0; i < files.Count; i++) {
-      GameObject b = CreateGameObject(block,p.transform);
-      string[] split = files[i].Split('\\');
-      b.GetComponentsInChildren<Text>()[0].text = split[split.Length-1];
-      RectTransform rt = b.GetComponent<RectTransform>();
-      rt.offsetMin = new Vector2(0,bStart-bHeight);
-      rt.offsetMax = new Vector2(0,bStart);
-      bStart -= bHeight;
-      height += bHeight;
-      b.SetActive(false);
+    float bHeight = 15;    
+    
+    if (files != null) {
+      for (int i = 0; i < files.Count; i++) {
+        GameObject b = CreateGameObject(block,p.transform);
+        string[] split = files[i].Split('\\');
+        b.GetComponentsInChildren<Text>()[0].text = split[split.Length-1];
+        RectTransform rt = b.GetComponent<RectTransform>();
+        rt.offsetMin = new Vector2(0,bStart-bHeight);
+        rt.offsetMax = new Vector2(0,bStart);
+        bStart -= bHeight;
+        height += bHeight;
+        b.SetActive(false);
+      }
     }
     mc.maxHeight = height;
     modControls[0] = mc;
