@@ -9,7 +9,7 @@ using UnityEngine;
 
   This marching cubes script is a modified version of the one available on Github by
   Scrawk: github.com/Scrawk/Marching-Cubes
-  
+
 ============================================================================== **/
 
 
@@ -26,21 +26,15 @@ public class MarchingCubes2 {
       cube = new float[8];
     }
 
-    public MarchingMeshCreator.MeshData Generate(IList<float> voxels, int width, int height, int depth, ref List<Vector3> verts, ref List<int> indices, int[,] dimensions, int idx) {
+    
+    public MarchingMeshCreator.MeshData Generate(IList<float> voxels, int width, int height, int depth, List<Vector3> verts, List<int> indices, int[] dimensions, int idx) {
       int x, y, z, i;
       int ix, iy, iz;
-
-
-      // UnityEngine.Debug.Log(idx + " DimL: " + dimensions[idx,0]);
-      // UnityEngine.Debug.Log(idx + " DimH: " + dimensions[idx,1]);
-      // UnityEngine.Debug.Log("WHD: " + width + "," + height + "," + depth);
-
-      int count = 0;
-      for (x = dimensions[idx,0]; x <= dimensions[idx,1]; x++) {
+      
+      for (x = dimensions[0]; x <= dimensions[1]; x++) {
         for (y = 0; y < height-1; y++) {
           for (z = 0; z < depth-1; z++) {
-              //Get the values in the 8 neighbours which make up a cube
-            count++;
+            //Get the values in the 8 neighbours which make up a cube            
             for (i = 0; i < 8; i++) {
               ix = x + VertexOffset[i, 0];
               iy = y + VertexOffset[i, 1];
@@ -56,11 +50,129 @@ public class MarchingCubes2 {
         }
       }
 
-      // UnityEngine.Debug.Log(idx + " Count: " + count + ", Verts: " + verts.Count);
+      
       MarchingMeshCreator.MeshData md = new MarchingMeshCreator.MeshData();
       md.verts = verts;
       md.indices = indices;
       return md;
+    }
+    
+    
+    //Mesh Splitter version - Improves transparency a bit, but has plenty of other drawbacks.
+    //The idea is that the z-value of transparent objects is determined in Unity by the center of the mesh
+    //therefore, by splitting a mesh into smaller meshes, more accurate transparency is achieved.
+    //However, to make this work well requires a huge number of separate meshes, which leads to 
+    //a serious performance hit.
+    //This method also does not use vertex indexing.
+    //
+    //Each instance of this method (run by 4 threads), splits a quarter of a cube (originally split in the x and z directions),
+    //into a number of smaller cubes determined by the splitNumber parameter.    
+    //
+    //TLDR: Don't use this in its current state.
+    public List<MarchingMeshCreator.MeshData> Generate(IList<float> voxels, int width, int height, int depth, List<Vector3> verts, List<int> indices, int[] dimensions, int idx, int splitNumber) {
+      int ix, iy, iz;
+
+
+      List<MarchingMeshCreator.MeshData> mds = new List<MarchingMeshCreator.MeshData>();
+      float xMod = (dimensions[1] - dimensions[0]) / (float)splitNumber;
+      float zMod = (dimensions[3] - dimensions[2]) / (float)splitNumber;
+      float yMod = (height / ((float)splitNumber*2));
+
+      int[] xD = new int[splitNumber+1];
+      int[] zD = new int[splitNumber+1];
+      int[] yD = new int[splitNumber*2+1];
+      string xs = "";
+      string ys = "";
+      string zs = "";
+      for (int i = 0; i < xD.Length; i++) {
+        xD[i] = (int)Mathf.Round(i * xMod + dimensions[0]);
+        zD[i] = (int)Mathf.Round(i * zMod + dimensions[2]);
+        xs += xD[i] + ", ";
+        
+        zs += zD[i] + ", ";
+      }
+      for (int i = 0; i < yD.Length; i++) {
+        yD[i] = (int)Mathf.Round(i * yMod);
+        ys += yD[i] + ", ";
+      }
+      
+
+      int yMin = 0, yMax = 0;
+      int xMin = 0, xMax = 0;
+      int zMin = 0, zMax = 0;
+      for (int x = 0; x < xD.Length-1; x++) {
+        xMin = xD[x];
+        xMax = xD[x+1];        
+        for (int y = 0; y < yD.Length-1; y++) {
+          yMin = yD[y];
+          yMax = yD[y+1];         
+          for (int z = 0; z < zD.Length-1; z++) {
+            zMin = zD[z];
+            zMax = zD[z+1];           
+            
+            //March over this cubic area
+            for (int u = xMin; u < xMax; u++) {
+              for (int v = yMin; v < yMax; v++) {
+                for (int w = zMin; w < zMax; w++) {                  
+                  for (int i = 0; i < 8; i++) {
+                    ix = u + VertexOffset[i, 0];
+                    iy = v + VertexOffset[i, 1];
+                    iz = w + VertexOffset[i, 2];
+                    if (ix >= width) { continue; }
+                    if (iy >= height) { continue; }
+                    if (iz >= depth) { continue; }
+                    
+                    
+                    try {
+                      cube[i] = voxels[ix + iy * width + iz * width * height];
+                    } catch (Exception e) {
+                      UnityEngine.Debug.Log(idx + "uvw: " + u + "," + v + "," + w);
+                      UnityEngine.Debug.Log(idx + "idx: " + (ix + iy * width + iz * width * height));
+                      UnityEngine.Debug.Log(idx + "vox: " + voxels.Count);
+                      throw e;
+                    }
+                  }
+                  March(u, v, w, cube, verts, indices);
+                }
+              }
+            }
+            //Add mesh
+            if (verts.Count != 0) {
+              if (verts.Count > 65532) {
+                List<Vector3> verts2 = new List<Vector3>();
+                List<int> indices2 = new List<int>();
+                int count = 0;
+                while (count < verts.Count) {
+                  verts2.Add(verts[count]);
+                  indices2.Add(indices[count]);
+                  verts2.Add(verts[count+1]);
+                  indices2.Add(indices[count+1]);
+                  verts2.Add(verts[count+2]);
+                  indices2.Add(indices[count+2]);
+                  count+= 3;
+                  if (verts2.Count >= 65532) {
+                    MarchingMeshCreator.MeshData md2 = new MarchingMeshCreator.MeshData();
+                    md2.verts = verts2;
+                    md2.indices = indices2;
+                    mds.Add(md2);
+                    verts2 = new List<Vector3>();
+                    indices2 = new List<int>();                    
+                  }
+                }
+              } else {
+                MarchingMeshCreator.MeshData md = new MarchingMeshCreator.MeshData();
+                md.verts = verts;
+                md.indices = indices;
+                mds.Add(md);
+              }
+            }
+            verts = new List<Vector3>();
+            indices = new List<int>();
+          }
+        }
+      }
+      // UnityEngine.Debug.Log("MarchingCubes2 " + idx + " - MD: " + mds.Count);
+      return mds;
     }
 
     void March(float x, float y, float z, float[] cube, IList<Vector3> vertList, IList<int> indexList) {

@@ -5,17 +5,19 @@ using Valve.VR.InteractionSystem;
 
 public class ObjectController : MonoBehaviour {
 
-  HashSet<GameObject> currentModels = new HashSet<GameObject>();
+  HashSet<GameObject> currentObjects = new HashSet<GameObject>();
   bool full = false;
-  GameObject currentModel;
+  GameObject currentObject;
 
   //Some Object with a collider that represents the target area
   public GameObject constraintArea;
   public bool restrictY = true;
+  public GameObject bedTop;
+  public GameObject bedPool;
 
   // Bounds constraintBounds;
   Collider constraintCollider;
-  int hands = 0;
+  int hands = 0;  
 
 
   class ConstrainedObject {
@@ -43,11 +45,11 @@ public class ObjectController : MonoBehaviour {
 	void Update () {
     if (constrainedObject != null) {
       ConstrainObject(constrainedObject);
-    }
+    }    
 	}
 
   public bool InConstrainedArea(GameObject obj) {
-    if ((constrainedObject != null && constrainedObject.obj == obj) || currentModels.Contains(obj)) {
+    if ((constrainedObject != null && constrainedObject.obj == obj) || currentObjects.Contains(obj)) {
       return true;
     }
     return false;
@@ -62,7 +64,22 @@ public class ObjectController : MonoBehaviour {
 
 
   }
+  
+  public GameObject GetCurrentObject() {
+    return currentObject;
+  }
 
+  // public void AddConstrainedObject() {
+    // hands++;
+    // if (constrainedObject != null) {
+      // constrainedObject.parent2 = parent;
+      // constrainedObject.offset2 = offset;
+    // }
+    // ConstrainedObject co = new ConstrainedObject();    
+    // co.parent1 = 
+    
+    
+  // }
   public void AddConstrainedObject(GameObject obj, Transform parent, Vector3 offset) {
     hands++;
     if (constrainedObject != null) {
@@ -136,29 +153,55 @@ public class ObjectController : MonoBehaviour {
 
   //Perform fullness check when removing an object from UI
   public void RemoveObject(GameObject g) {
-    if (currentModels.Remove(g)) {
-      g.transform.parent = null;
-    }
+    if (currentObject != g) { return; }
+    currentObject.transform.parent = bedPool.transform;
+    currentObject.transform.position = bedPool.transform.position;
+    Rigidbody rb = currentObject.AddComponent<Rigidbody>();
+    rb.mass = 5;
+    rb.drag = 0.2f;
+    currentObject = null;
+    constrainedObject = null;
+    print("Removed: " + g.name);
   }
 
   public bool AddObject(GameObject g) {
-    if (currentModels.Add(g)) {
-      g.transform.parent = constraintArea.transform;
-    }
-    return currentModels.Add(g);
+    if (currentObject == g) { return false; }
+    if (currentObject != null) { RemoveObject(currentObject); }
+    currentObject = g;
+    Rigidbody rb = g.GetComponent<Rigidbody>();
+    if (rb) { GameObject.Destroy(rb); }
+    
+    //Position object in center of bed
+    Bounds bounds = g.GetComponent<BoxCollider>().bounds;
+    Bounds bedBounds = bedTop.GetComponent<MeshCollider>().bounds;
+    g.transform.parent = constraintArea.transform;    
+    g.transform.position = bedTop.transform.position - bedTop.transform.right * bedBounds.extents.x + bedTop.transform.forward * (bedBounds.size.y + bounds.extents.y);
+    
+    //Match rotation of bed and adjust for model offset
+    g.transform.rotation = bedTop.transform.rotation;    
+    g.transform.Rotate(0,-90,90);
+    
+    
+    print("Added: " + g.name);
+    
+    print("Bed: " + bedTop.transform.position + ", G: " + g.transform.position + ", boundsE: " + bounds.extents + ", boundsB: " + bedBounds.extents);
+    // g.transform.position = g.transform.parent.position + Vector3.up * bounds.extents.z;
+    
+    
+    return true;
   }
 
   public bool IsFull() {
-    return constrainedObject != null || currentModels.Count != 0;
+    return constrainedObject != null || currentObjects.Count != 0;
   }
 
   // void OnTriggerEnter(Collider other) {
     // print("Trigger Enter: " + other.gameObject.name);
-    // currentModels.Add(other.gameObject);
+    // currentObjects.Add(other.gameObject);
   // }
 
   // void OnTriggerExit(Collider other) {
     // print("Trigger Exit: " + other.gameObject.name);
-    // currentModels.Remove(other.gameObject);
+    // currentObjects.Remove(other.gameObject);
   // }
 }

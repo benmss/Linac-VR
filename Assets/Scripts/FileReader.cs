@@ -68,7 +68,7 @@ public class FileReader : MonoBehaviour {
   //Could save previously found files in the config file
   // static List<LoadableFile> loadableFilesFromConfig;
   // bool filesLoadedFromConfig = false;
-  
+
   //Loading Files
   static List<LoadableFile> loadableFilesFromScan;
   bool filesLoadedFromScan = false;
@@ -77,8 +77,9 @@ public class FileReader : MonoBehaviour {
   bool loadingModelDone = false;
   bool loadingModelChange = false;
   string loadingModelName = "";
-  
-  public class LoadableFile {  
+  MeshMaker.Model lastModel;
+
+  public class LoadableFile {
     public string folderName;
     public FileInfo file;
     public LoadableFile(string folderName, FileInfo file) {
@@ -86,7 +87,7 @@ public class FileReader : MonoBehaviour {
       this.file = file;
     }
   }
-  
+
   public class LoadableFileInstance {
     public LoadableFile loadableFile;
     public string instanceName;
@@ -95,8 +96,8 @@ public class FileReader : MonoBehaviour {
       this.instanceName = instanceName;
     }
   }
-  
-  
+
+
   List<Thread> threads = new List<Thread>();
   static Thread mainThread = Thread.CurrentThread;
 
@@ -104,6 +105,7 @@ public class FileReader : MonoBehaviour {
 
 
   ObjectController oc;
+  // LaserController lc;
 
   UIController uic;
   MarchingMeshCreator meshMarcherC;
@@ -139,30 +141,30 @@ public class FileReader : MonoBehaviour {
     models.Add(fname,new MeshMaker.Model());
     return fname;
   }
-  
+
   //RT Structure files only
-  void FindLoadableFiles() {    
+  void FindLoadableFiles() {
     string defaultPath = "../..";
     if (pathToData != "") {
       defaultPath = pathToData;
     }
-    
+
     List<LoadableFile> loadableFiles = new List<LoadableFile>();
-    
+
     //To be loadable a folder must contain an RT structure file.
     foreach (string s in Directory.GetDirectories(defaultPath)) {
       DirectoryInfo d = new DirectoryInfo(s);
       FileInfo[] f = d.GetFiles("*.dcm");
       List<FileInfo> fstruct = FindDicomFilesByType(f,"RTSTRUCT");
-      if (fstruct.Count != 0) {        
+      if (fstruct.Count != 0) {
         print("New LoadableFile: " + d.Name + ", " + fstruct[0].Name);
         loadableFiles.Add(new LoadableFile(d.Name,fstruct[0]));
       }
     }
-    FileReader.loadableFilesFromScan = loadableFiles;    
-    // this.loadableFiles = loadableFiles;    
+    FileReader.loadableFilesFromScan = loadableFiles;
+    // this.loadableFiles = loadableFiles;
   }
-  
+
   public List<string> GetLoadableFiles() {
     List<string> ret = new List<string>();
     if (loadableFilesFromScan == null) { return null; }
@@ -171,7 +173,7 @@ public class FileReader : MonoBehaviour {
     }
     return ret;
   }
-  
+
 
   /* public List<string> FindLoadableFolders() {
     //Could use default file path from a config file
@@ -213,7 +215,7 @@ public class FileReader : MonoBehaviour {
           //0,1,2,3 -> 1,2,3,4 -> 2,3,4,5 -> etc.
           //This is just a precaution incase the header info length is not a multiple of 4
           //which could cause the tag we are looking for to be missed if we chose to do
-          //non overlapping blocks. 
+          //non overlapping blocks.
           if (tag != "0008,0005") {
             fs.Position -= 3;
             continue;
@@ -240,11 +242,12 @@ public class FileReader : MonoBehaviour {
   }
 
 
-  void Start() {
+  void Start() {    
     oc = GameObject.Find("Object Controller").GetComponent<ObjectController>();
     uic = GameObject.Find("UI Controller").GetComponent<UIController>();
+    // lc = GameObject.Find("Laser Controller").GetComponent<LaserController>();
 
-    //Look for RT Struct files on a separate thread    
+    //Look for RT Struct files on a separate thread
     Thread t = new Thread(() => {
       FindLoadableFiles();
     });
@@ -259,7 +262,7 @@ public class FileReader : MonoBehaviour {
     // return;
 
     // for (int i = 0; i < preloadModels; i++) {
-      // string s = "";      
+      // string s = "";
       // LoadModel(pathToData + preloadModelName);
     // }
   }
@@ -274,27 +277,27 @@ public class FileReader : MonoBehaviour {
     filePath - name of folder that contains Dicom image and RT_Structure files.
 
   ============================================================================== **/
-  public void LoadModel(int idx) {    
+  public void LoadModel(int idx) {
     if (idx < 0 || idx >= loadableFilesFromScan.Count) { return; }
-    
-    
+
+
     // LoadableFile f = loadableFiles[idx];
     // loadQueue.AddLast(new DoubleString(filePath,f.folderName));
-    
+
     // Generate unique name for new model made from passed file
     string fname = ModelNameGenerator(loadableFilesFromScan[idx].folderName);
     loadQueue.AddLast(new LoadableFileInstance(loadableFilesFromScan[idx],fname));
     loadingModelChange = true;
-    
+
   }
   // public void LoadModel(string filePath) {
-    
+
     // string fname = ModelNameGenerator(filePath);
 
     // loadQueue.AddLast(new DoubleString(filePath,fname));
     // loadingModelChange = true;
   // }
-  
+
   private void LoadModel (string fname) {
     int count = 0;
     foreach (LoadableFile f in loadableFilesFromScan) {
@@ -328,6 +331,13 @@ public class FileReader : MonoBehaviour {
     Destroy(g);
   }
 
+  public MeshMaker.Model GetModel(GameObject g) {
+    if (models.ContainsKey(g.name)) {
+      return models[g.name];
+    }
+    return null;
+  }
+
   //Retrieve a list of all currently loaded models
   public List<MeshMaker.Model> GetModels() {
     List<MeshMaker.Model> ret = new List<MeshMaker.Model>();
@@ -337,7 +347,7 @@ public class FileReader : MonoBehaviour {
     // print("Get Models: " + ret.Count);
     return ret;
   }
-  
+
   void OnDestroy() {
     //Stop any threads that might still be running
     foreach (Thread t in threads) {
@@ -364,44 +374,47 @@ public class FileReader : MonoBehaviour {
   ==========================================================================**/
 	void Update () {
     // if (!filesLoadedFromConfig && loadableFilesFromConfig != null) {
-      
-      
       // filesLoadedFromConfig = true;
     // }
-    
+
     if (!filesLoadedFromScan && loadableFilesFromScan != null) {
-      uic.UpdateUI();      
+      uic.UpdateUI();
       filesLoadedFromScan = true;
       print("Loadable Files Done");
       if (preloadModels > 0) {
         for (int i = 0; i < preloadModels; i++) {
-          string s = "";      
+          string s = "";
           LoadModel(preloadModelName);
         }
       }
-      
-      // for (int i = 0; i < preloadModels; i++) {
-      // string s = "";      
-      // LoadModel(pathToData + preloadModelName);
-    // }
-    }
-    
-    
-    
-    
-    
-    //Model has just been loaded and awaits final setup
-    if (rotate != null) {
-      Transform t = null;
-      if (oc.IsFull()) {
-        t = bedBackup.transform;
-      } else {
-        t = bed.transform;
-      }
-      MeshMaker.ScaleModel(rotate,t,models[rotate.gameObject.name].dimensions[0],isoCenter);
-      rotate = null;
     }
 
+    //Last update for new model
+    if (lastModel != null) {
+      lastModel.markers = MeshMaker.CreateMarkers(lastModel.top.transform, lastModel.isoCenter);
+      // oc.AddObject(lastModel.top);
+      // if (lastModel.top.transform.parent == bed.transform) {
+      oc.AddObject(lastModel.top);
+      // } else {
+        // Rigidbody rb = lastModel.top.AddComponent<Rigidbody>();
+        // rb.mass = 5;
+        // rb.drag = 0.5f;
+      // }
+      lastModel = null;
+    }
+
+    //Second last update for new model
+    if (rotate != null) {
+      Transform t = null;
+      // if (oc.IsFull()) {
+        // t = bedBackup.transform;
+      // } else {
+        // t = bed.transform;
+      // }
+      MeshMaker.ScaleModel(rotate,t,models[rotate.gameObject.name].dimensions[0],models[rotate.gameObject.name].isoCenter);
+      lastModel = models[rotate.gameObject.name];
+      rotate = null;
+    }
 
     //Model Loading Queue
     if (!loadingModel && loadQueue.Count > 0) {
@@ -429,7 +442,7 @@ public class FileReader : MonoBehaviour {
       loadingModelChange = false;
       uic.UpdateLoadUI(loadingModelName,loadQueue.Count);
     }
-    
+
     //Model Data has been created, turn into GameObjects with Meshes
     if (FileReader.modelData != null) {
       Stopwatch sw = new Stopwatch();
@@ -437,6 +450,7 @@ public class FileReader : MonoBehaviour {
       List<MeshMaker.ModelData> mdl = FileReader.modelData;
       FileReader.modelData = null;
       MeshMaker.Model m = MeshMaker.CreateModel(mdl,mdl[0].topName);
+
       models[m.name] = m;
       modelNames.Add(m.name);
       MeshMaker.FixPositions(m.dimensions,m.top);
@@ -749,7 +763,7 @@ public class FileReader : MonoBehaviour {
     return b[1].ToString("X2") + b[0].ToString("X2") + "," + b[3].ToString("X2") + b[2].ToString("X2");
   }
 
-  public static int GetNextLength(FileStream fs) {    
+  public static int GetNextLength(FileStream fs) {
     Byte[] b = new Byte[4];
     fs.Read(b,0,4);
     if (b[0] == 0xFF && b[1] == 0xFF && b[2] == 0xFF && b[3] == 0xFF) { return 0; }
@@ -765,7 +779,7 @@ public class FileReader : MonoBehaviour {
     }
     return s;
   }
-  
+
   public static int GetDataIntString(FileStream fs, int length) {
     return Convert.ToInt32(GetData(fs,length));
   }
@@ -784,6 +798,9 @@ public class FileReader : MonoBehaviour {
 
   //Tag info found at:
   //ftp://medical.nema.org/medical/dicom/final/sup11_ft.pdf
+
+  //Found a nice dicom tag visualiser:
+  //https://dicom.innolitics.com/ciods/rt-structure-set/rt-roi-observations/30060080/300600a4
 
 
   //Structure Data
@@ -844,8 +861,8 @@ public class FileReader : MonoBehaviour {
     ret.Add("FFFE,E000");
     return ret;
   }
-  
-  
+
+
 
   /* Misc Tag Info
 

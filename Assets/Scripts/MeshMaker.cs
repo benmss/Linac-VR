@@ -28,11 +28,14 @@ public class MeshMaker {
     public string name;
     public List<GameObject> models;
     public List<Material> mats;
+    public List<Material> altMats;
     public List<List<float>> dimensions;
     public byte[,,] sliceData;
     public int zMin;
     public GameObject top;
     public Material laserMat;
+    public GameObject isoCenter;
+    public GameObject[] markers;
   }
 
   public GameObject isoCube;
@@ -107,61 +110,25 @@ public class MeshMaker {
 
     bool printOnce = false;
 
-    // print("WHD  : " + width + "/" + height + "/" + depth);
-    // print("XYZ L: " + xMin + "/" + yMin + "/" + zMin);
-    // print("XYZ H: " + xMax + "/" + yMax + "/" + zMax);
-    // print("Z    : " + model.data.Count);
 
-
-    //Z slices, S structures, P points
-    // for (int z = 0; z < model.data.Count; z++) {
-      // HashSet<float> zValues = new HashSet<float>();
-      // for (int s = 0; s < model.data[z].Count; s++) {
-        // for (int p = 0; p < model.data[z][s].Count; p++) {
-          // zValues.Add(model.data[z][s][p].z);
-        // }
-      // }
-
-      // string sz = "";
-      // foreach (float zzz in zValues) {
-        // sz += zzz + ", ";
-      // }
-      // print("Z values at z=" + z + " : " + sz);
-    // }
 
     // byte[] sliceData = null;
     // byte[,,] sliceData2 = null;
     float[] pixels = new float[width * height * depth];
     int xd = 0, yd = 0, zd = 0;
-    // if (model.model == 0) {
-      // sliceData = new byte[width * height * depth];
-      // int w2 = slicePixels.GetLength(0);
-      // int h2 = slicePixels.GetLength(1);
-      // int d2 = slicePixels.GetLength(2);
-      // sliceData2 = new byte[w2,h2,d2];
-      // xd = (int)Mathf.Round(model.dimensions[0] - slicePosition.x);
-      // yd = (int)Mathf.Round(model.dimensions[2] - slicePosition.y);
-      // zd = (int)Mathf.Round(model.dimensions[4] - slicePosition.z);
-    // }
 
-    // int zCounter = 0;
-    // int sCounter = 0;
-    // int pCounter = 0;
 
     //For each 2D slice (|Z| value)
     for (int z = 0; z < model.data.Count; z++) {
-      // zCounter++;
       //For each |S|tructure within a single 2D slice
       for (int s = 0; s < model.data[z].Count; s++) {
-        // sCounter++;
-        //Apply Bresenham's 2D line algorithm and create Set of resulting points
+       //Apply Bresenham's 2D line algorithm and create Set of resulting points
         HashSet<Vector3> voxelPoints = new HashSet<Vector3>();
 
 
         swb.Start();
         //For each |P|oint in this structure
         for (int p = 0; p < model.data[z][s].Count; p++) {
-          // pCounter++;
           Vector3 v1 = model.data[z][s][p];
           Vector3 v2;
           if (p < model.data[z][s].Count - 1) {
@@ -226,11 +193,6 @@ public class MeshMaker {
               int iz = (int)Mathf.Round(v.z)-1;
               // sliceData2[ix,iy,iz] = 1;
               // sliceData[idx] = 1;
-              if (!printOnce) {
-                // UnityEngine.Debug.Log(v + " -> (" + ix + "," + iy + "," + iz + ") | " +
-                // xd + "," + yd + "," + zd + ", zRange: " + model.data.Count);
-                printOnce = true;
-              }
             }
           }
           if (model.model == 0) {
@@ -238,29 +200,22 @@ public class MeshMaker {
           }
           swc.Stop();
 
-          //Terminate loop
+          //Terminate loop as slice is now filled
           break;
         }
-
       }
     }
 
-    // print("Model " + model.model + " Counting - Z: " + zCounter + ", S: " + sCounter + ", P: " + pCounter);
-
     //Slices
     model.data = null;
-    if (model.model == 0) {
+    // if (model.model == 0) {
       // model.sliceData = sliceData2;
-    }
+    // }
 
     sw.Stop();
 
     model.sw.Start();
     model.meshData = model.meshMarcher.CreateMesh(pixels,width,height,depth,model.model);
-
-    // UnityEngine.Debug.Log("MeshData: " + model.meshData.Count);
-    // MarchingMeshCreator m = meshMarcher.GetComponent<MarchingMeshCreator>();
-    // m.CreateMesh(pixels,width,height,depth,model.model);
 
     model.sw.Stop();
 
@@ -290,12 +245,12 @@ public class MeshMaker {
     Transform t0 = meshMarcher.transform.GetChild(0);
     print("Top: " + meshMarcher.name);
     Vector3 center = Vector3.zero;
-    
+
     int xMin = int.MaxValue; int xMax = int.MinValue;
     int yMin = int.MaxValue; int yMax = int.MinValue;
     int zMin = int.MaxValue; int zMax = int.MinValue;
-    
-    
+
+
     for (int i = 0; i < ranges.Count; i++) {
       List<float> dimensions = ranges[i];
       xMin = (int)(Mathf.Round(Mathf.Min(xMin,dimensions[0]-lower)));
@@ -310,9 +265,9 @@ public class MeshMaker {
     int depth = zMax - zMin;
     Vector3 half = new Vector3(width*.5f,height*.5f,depth*.5f);
     center = new Vector3(xMin + half.x, yMin + half.y, zMin + half.z);
-    
-    
-    
+
+
+
     for (int i = 0; i < ranges.Count; i++) {
       List<float> dimensions = ranges[i];
 
@@ -330,17 +285,13 @@ public class MeshMaker {
       int height2 = yMax2 - yMin2;
       int depth2 = zMax2 - zMin2;
 
-      
+
       Vector3 target = new Vector3(xMin2,yMin2,zMin2);
       Vector3 half2 = new Vector3(width2*.5f,height2*.5f,depth2*.5f);
       target += half2;
       target -= center;
       t.transform.position = target;
     }
-
-    // for (int i = 1; i < meshMarcher.transform.childCount;) {
-      // meshMarcher.transform.GetChild(i).parent = t0;
-    // }
   }
 
   static void print(string p) {
@@ -360,11 +311,14 @@ public class MeshMaker {
 
     List<GameObject> gos = new List<GameObject>();
     List<Material> mats = new List<Material>();
-    List<List<float>> dims = new List<List<float>>();    
+    List<Material> altMats = new List<Material>();
+    List<List<float>> dims = new List<List<float>>();
+
 
     //Create list of markers and iso centers in model
     Dictionary<Vector3,int> pointCounter = new Dictionary<Vector3,int>();
 
+    GameObject isoCenter = null;
 
     for (int i = 0; i < modelData.Count; i++) {
       ModelData md = modelData[i];
@@ -372,27 +326,53 @@ public class MeshMaker {
 
       //Marker or IsoCenter (Single Point)
       if (md.point) {
-        GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        // GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        GameObject cube = new GameObject();
         cube.transform.position = md.pointPosition;
         cube.name = md.name;
+        string nameLower = md.name.ToLower();
+        if (!isoCenter && nameLower.Contains("isocenter") || nameLower.Contains("izocenter") ||
+            nameLower.Contains("iso center") || nameLower.Contains("izo center") ||
+            nameLower.Contains("isocentre") || nameLower.Contains("izocentre") ||
+            nameLower.Contains("iso centre") || nameLower.Contains("izo centre")) {
+          // if (cube.transform.position != Vector3.zero) {
+            isoCenter = cube;
+          // }
+        }
+
         cube.transform.parent = top.transform;
+        if (pointCounter.ContainsKey(md.pointPosition)) {
+          pointCounter[md.pointPosition]++;
+        } else {
+          pointCounter.Add(md.pointPosition,1);
+        }
         continue;
       }
 
       if (md.meshData == null) { continue; }
       if (md.meshData.Count == 0) { continue; }
       GameObject mid = new GameObject (md.name);
-      mid.layer = 12;
+      if (i == 0) {
+        mid.layer = 12;
+      }
       mid.transform.parent = top.transform;
       //Using legacy shader for adjustable transparency at runtime, see
       //UIController.VisibilitySliders for more info.
       Material mat = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse"));
       mat.SetColor("_Color", md.colour);
+
       if (i == 0) {
-        Material mat2 = new Material(Shader.Find("Custom/LaserOverlay"));
+        Material mat2 = new Material(Shader.Find("Custom/LaserOverlayWithMarker"));
+        // Material mat2 = new Material(Shader.Find("Custom/LaserOverlay"));
         mat2.SetColor("_Color", md.colour);
         model.laserMat = mat2;
+        altMats.Add(mat2);
+      } else {
+        Material aMat = new Material(Shader.Find("Standard"));
+        aMat.SetColor("_Color", md.colour);
+        altMats.Add(aMat);
       }
+
 
       gos.Add(mid);
       mats.Add(mat);
@@ -414,13 +394,37 @@ public class MeshMaker {
         go.transform.parent = mid.transform;
         go.AddComponent<MeshFilter>();
         go.AddComponent<MeshRenderer>();
-        go.GetComponent<Renderer>().material = mat;
+        if (i != 0) {
+          go.GetComponent<Renderer>().material = altMats[altMats.Count-1];
+          mat.renderQueue = 3001;
+        } else {
+          go.GetComponent<Renderer>().material = model.laserMat;
+        }
         go.GetComponent<MeshFilter>().mesh = mesh;
         meshCounter++;
       }
 
       AlignMeshes(mid.transform);
     }
+
+    model.isoCenter = isoCenter;
+    if (isoCenter != null) {
+      for (int i = 0; i < gos[0].transform.childCount; i++) {
+        GameObject g = gos[0].transform.GetChild(i).gameObject;
+        g.AddComponent<MeshCollider>();
+      }
+
+
+      UnityEngine.Debug.DrawLine(isoCenter.transform.position, isoCenter.transform.position + Vector3.right * 10000);
+      UnityEngine.Debug.DrawLine(isoCenter.transform.position, isoCenter.transform.position - Vector3.up * 10000);
+
+      // UnityEngine.Debug.LogError("RayFired: " + isoCenter.transform.position + ", b: " + b);
+
+
+
+
+    }
+
 
     model.sliceData = modelData[0].sliceData;
     ModelData md0 = modelData[0];
@@ -430,6 +434,7 @@ public class MeshMaker {
     model.name = name;
     model.models = gos;
     model.mats = mats;
+    model.altMats = altMats;
     model.dimensions = dims;
 
     // FileReader.printStopwatch(sw, "CreateModel: ");
@@ -505,6 +510,34 @@ public class MeshMaker {
     return m;
   }
 
+  public static GameObject[] CreateMarkers(Transform top, GameObject isoCenter) {
+    RaycastHit hit, hit2;
+    int layer = LayerMask.GetMask("Models");
+    float dist = .4f;
+    Vector3 start = isoCenter.transform.position;
+    Vector3 bDir = isoCenter.transform.up;
+    Vector3 cDir = isoCenter.transform.right;
+    bool b = Physics.Raycast(start - bDir * dist, bDir, out hit, dist, layer);
+    bool c = Physics.Raycast(start - cDir * dist, cDir, out hit2, dist, layer);
+    UnityEngine.Debug.Log("ic: " + isoCenter.transform.position);
+
+
+    GameObject bCube = new GameObject("bCube");
+    GameObject cCube = new GameObject("cCube");
+    bCube.transform.position = hit.point;
+    cCube.transform.position = hit2.point;
+    bCube.transform.localScale = (new Vector3(.01f,.01f,.01f));
+    cCube.transform.localScale = (new Vector3(.01f,.01f,.01f));
+    bCube.transform.parent = top;
+    cCube.transform.parent = top;
+
+    for (int i = 0; i < top.GetChild(0).childCount; i++) {
+      GameObject.Destroy(top.GetChild(0).GetChild(i).GetComponent<MeshCollider>());
+    }
+    top.GetComponent<BoxCollider>().enabled = true;
+    return new GameObject[]{bCube,cCube};
+  }
+
   public static void ScaleModel(Transform top, Transform pos, List<float> dimensions, GameObject isoCenter) {
 
     float xMin = float.MaxValue; float xMax = float.MinValue;
@@ -516,10 +549,10 @@ public class MeshMaker {
     for (int i = 0; i < top.childCount; i++) {
       Transform t = top.GetChild(i);
       BoxCollider bc = t.gameObject.GetComponent<BoxCollider>();
-      if (!bc) { continue; }      
-      Bounds bb = bc.bounds;      
+      if (!bc) { continue; }
+      Bounds bb = bc.bounds;
       bounds.Encapsulate(bb.max);
-      bounds.Encapsulate(bb.min);      
+      bounds.Encapsulate(bb.min);
       xMin = Mathf.Min(xMin,bb.min.x);
       xMax = Mathf.Max(xMax,bb.max.x);
       yMin = Mathf.Min(yMin,bb.min.y);
@@ -527,24 +560,25 @@ public class MeshMaker {
       zMin = Mathf.Min(zMin,bb.min.z);
       zMax = Mathf.Max(zMax,bb.max.z);
       GameObject.Destroy(bc);
-    }    
-    Vector3 center = new Vector3((xMin+xMax)*.5f,(yMin+yMax)*.5f,(zMin+zMax)*.5f);    
+    }
+    Vector3 center = new Vector3((xMin+xMax)*.5f,(yMin+yMax)*.5f,(zMin+zMax)*.5f);
     BoxCollider bbc = top.gameObject.AddComponent<BoxCollider>();
     bbc.size = bounds.size;
     bbc.center = center;
 
     top.localScale = new Vector3(0.001f,0.001f,0.001f);
-    top.position = pos.transform.position;
-    top.parent = pos;
+    // top.position = pos.transform.position;
+    // top.parent = pos;
+    bbc.enabled = false;
 
-    Rigidbody rb = top.gameObject.AddComponent<Rigidbody>();
+    // Rigidbody rb = top.gameObject.AddComponent<Rigidbody>();
     top.gameObject.AddComponent<Valve.VR.InteractionSystem.Interactable>();
-    top.parent = pos;
-    top.rotation = pos.rotation;
-    top.Rotate(0,-90,90);
+    // top.parent = pos;
+    // top.rotation = pos.rotation;
+    // top.Rotate(0,-90,90);
 
-    rb.mass = 5;
-    rb.drag = 0.5f;
+    // rb.mass = 5;
+    // rb.drag = 0.5f;
 
     // UnityEngine.Debug.LogError("Scaled.");
   }

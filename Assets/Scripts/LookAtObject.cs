@@ -2,11 +2,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class LookAtCamera : MonoBehaviour {
+public class LookAtObject : MonoBehaviour {
 
-  public Transform camera;
-  
-
+  public Transform target;
 	// Use this for initialization
 	void Start () {
 		
@@ -14,7 +12,6 @@ public class LookAtCamera : MonoBehaviour {
 	
 	// Update is called once per frame
 	void Update () {
-		transform.LookAt(camera);
-    transform.Rotate(0,180,0);
+		transform.LookAt(target,transform.up);
 	}
 }

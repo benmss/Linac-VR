@@ -8,7 +8,7 @@ public class LaserController : MonoBehaviour {
 
   public Transform isoCenter;
 
-
+  
 
   HashSet<Material> mats = new HashSet<Material>();
   HashSet<Material> modelMats = new HashSet<Material>();
@@ -21,31 +21,36 @@ public class LaserController : MonoBehaviour {
   List<LaserTarget> laserTargets = new List<LaserTarget>();
   HashSet<string> mn = new HashSet<string>();
   int modelCount = 0;
+  float[] lightIntensity;
+  float dimLightIntensity = 0.2f;
+  // float lerpCounter = 0;
+  ObjectController oc;
+  UIController uic;
+  
+  GameObject[] markers;
+  Material markerMat;
+  GameObject lastObj;
+  MeshMaker.Model lastModel;
+
   public FileReader fileReader;
+  public Light[] lights;
 
 
 	// Use this for initialization
 	void Start () {
+    oc = GameObject.Find("Object Controller").GetComponent<ObjectController>();
+    uic = GameObject.Find("UI Controller").GetComponent<UIController>();
+
+    lightIntensity = new float[lights.Length];
+    for (int i = 0; i < lights.Length; i++) {
+      lightIntensity[i] = lights[i].intensity;
+    }
+
     LaserTarget[] lsa = Transform.FindObjectsOfType(typeof (LaserTarget)) as LaserTarget[];
     foreach (LaserTarget ls in lsa) {
       laserTargets.Add(ls);
       mats.Add(ls.gameObject.GetComponent<MeshRenderer>().sharedMaterial);
-      // mn.Add(ls.gameObject.GetComponent<MeshRenderer>().material.name);
     }
-
-
-    // foreach (string s in mn) {
-      // print(s);
-    // }
-
-		// foreach (GameObject g in laserReceivers) {
-      // if (g) {
-        // mats.Add(g.GetComponent<Renderer>().material);
-      // }
-    // }
-
-    // bed = bedAnchor.transform.position;
-    // linac = linacAnchor.transform.position;
     AlignLasers(0);
 	}
 
@@ -54,10 +59,13 @@ public class LaserController : MonoBehaviour {
   }
 
 
+  
+
 
   List<MeshMaker.Model> UpdateLaserTargets() {
+    GameObject currentModel = oc.GetCurrentObject();
+
     List<MeshMaker.Model> models = fileReader.GetModels();
-    // if (models.Count != modelCount) {
     foreach (MeshMaker.Model m in models) {
       modelMats.Add(m.laserMat);
     }
@@ -94,6 +102,13 @@ public class LaserController : MonoBehaviour {
     AlignLasers(1);
     SetLasers(on ? 1 : 0);
     UpdateModelLasers(models);
+    ToggleLights();
+  }
+
+  void ToggleLights() {
+    for (int i = 0; i < lights.Length; i++) {
+      lights[i].intensity = (on ? dimLightIntensity : lightIntensity[i]);
+    }
   }
 
   public void ChangeLasers(float v) {
@@ -129,35 +144,43 @@ public class LaserController : MonoBehaviour {
   }
 
 	// Update is called once per frame
-	void Update () {
-		bool l = Input.GetKeyUp("l");
-    bool t = Input.GetKeyUp("t");
-
-    if (l) {
-      on = !on;
-      foreach (Material m in mats) {
-        m.SetInt("_ON",(on == true ? 1 : 0));
+	void FixedUpdate () {
+    if (on) {      
+      GameObject cur = oc.GetCurrentObject();
+      MeshMaker.Model model;
+      if (cur == null) { 
+        UnityEngine.Debug.Log("No Obj");
+        return;
       }
-    }
-
-    if (t && testCounter == -1) {
-      testCounter = 0;
-      foreach (Material m in mats) {
-        m.SetInt("_OK",1);
+      if (lastObj != null && cur == lastObj && lastModel != null) {
+        model = lastModel;
+      } else {
+        lastObj = cur;
+        lastModel = model = fileReader.GetModel(cur);
       }
-    }
-
-    if (testCounter == testMax) {
-      testCounter = -1;
-      foreach (Material m in mats) {
-        m.SetInt("_OK",0);
+      
+      if (cur == null || model == null || model.markers == null) { 
+        UnityEngine.Debug.Log("No Obj/Model/Marker: " + model);
+        return;
       }
-
+      // UnityEngine.Debug.Log("Adjusting marker shader.");
+      
+      //Get position of markers
+      Vector3 m1 = model.markers[0].transform.position;
+      Vector3 m2 = model.markers[1].transform.position;
+      
+      //Update material with positions
+      model.laserMat.SetFloat("_x1",m1.x);
+      model.laserMat.SetFloat("_x2",m2.x);
+      model.laserMat.SetFloat("_y1",m1.y);
+      model.laserMat.SetFloat("_y2",m2.y);
+      model.laserMat.SetFloat("_z1",m1.z);
+      model.laserMat.SetFloat("_z2",m2.z);
+      model.laserMat.SetInt("_ON_M",1);
+      // UnityEngine.Debug.Log(m1 + " | " + m2);
+      uic.UpdateIsoSign(model);
+    } else {
+      uic.UpdateIsoSign(null);
     }
-
-    if (testCounter >= 0) {
-       testCounter++;
-    }
-
 	}
 }

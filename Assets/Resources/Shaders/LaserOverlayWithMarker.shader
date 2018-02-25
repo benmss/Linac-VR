@@ -2,7 +2,7 @@
 
 // Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
 
-Shader "Custom/LaserOverlay"
+Shader "Custom/LaserOverlayWithMarker"
 {
     Properties
     {
@@ -17,7 +17,15 @@ Shader "Custom/LaserOverlay"
         _zMin ("zMin", Float) = 0
         _zMax ("zMax", Float) = 0
 
+        _x1 ("x1", Float) = 0
+        _x2 ("x2", Float) = 0
+        _y1 ("y1", Float) = 0
+        _y2 ("y2", Float) = 0
+        _z1 ("z1", Float) = 0
+        _z2 ("z2", Float) = 0
+
         _ON("ON", Range(0,1)) = 0
+        _ON_M("ON_M", Range(0,1)) = 0
         _OK("OK", Range(0,1)) = 0
     }
     SubShader
@@ -77,7 +85,14 @@ Shader "Custom/LaserOverlay"
             float _yMax;
             float _zMin;
             float _zMax;
+            float _x1;
+            float _x2;
+            float _y1;
+            float _y2;
+            float _z1;
+            float _z2;
             float _ON;
+            float _ON_M;
             float _OK;
 
             //Using world position variables set by a script in Unity, draw the laser colour
@@ -87,9 +102,22 @@ Shader "Custom/LaserOverlay"
             //from the laser 'line', the bleed distance is determined by the local parameter 'xD'
             fixed4 frag (v2f i) : SV_Target
             {
-                float xD = .1f;
+                
                 fixed4 col = tex2D(_MainTex, i.uv) * _Color;
 
+                float mD = .015f;
+                if (_ON_M == 1) {
+                  //Blue Marker
+                  if (distance(i.wpos,float3(_x1,_y1,_z1)) < mD) {
+                    col.rgb = float3(0.1,0.2,1);
+                  }
+                  //Green Marker
+                  if (distance(i.wpos,float3(_x2,_y2,_z2)) < mD) {
+                    col.rgb = float3(0.1,1,0.2);
+                  }
+                }
+
+                float xD = .1f;
                 if (_ON == 1) {
                   if (i.wpos.x < _xMax && i.wpos.x > _xMin) {
                     if (_OK == 1) {

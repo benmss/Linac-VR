@@ -13,6 +13,6 @@ public class ObjectDetector : MonoBehaviour {
     listener.BroadcastMessage(addMethod,other.gameObject);
   }
   void OnTriggerExit(Collider other) {
-    listener.BroadcastMessage(removeMethod,other.gameObject);
+    // listener.BroadcastMessage(removeMethod,other.gameObject);
   }
 }

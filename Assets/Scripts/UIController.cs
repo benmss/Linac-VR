@@ -101,7 +101,7 @@ public class UIController : MonoBehaviour {
   bool[] heldObject = new bool[2];
   ControllerHoverHighlight[] controllerHighlights = new ControllerHoverHighlight[2];
   bool[] grabHint = new bool[2];
-  
+
 
 
   static int loadingCharLimit = 14;
@@ -120,6 +120,8 @@ public class UIController : MonoBehaviour {
   public GameObject loadingText;
   public GameObject queueText;
   public GameObject menuIndicator;
+  public GameObject[] isoSigns;
+  
 
   int touchpadSelection = 0;
   int touchpadCounterMax = 20;
@@ -131,6 +133,7 @@ public class UIController : MonoBehaviour {
   class VisControl {
     public List<GameObject> models;
     public List<Material> mats;
+    public List<Material> altMats;
     public float minHeight;
     public float maxHeight;
     public bool open;
@@ -262,10 +265,10 @@ public class UIController : MonoBehaviour {
           } else {
             if (hand.hoveringInteractable) {
               //Pickup
-              oc.AddConstrainedObject(hand.hoveringInteractable.gameObject, hand.transform, 
+              oc.AddConstrainedObject(hand.hoveringInteractable.gameObject, hand.transform,
                 hand.hoveringInteractable.transform.position - hand.transform.position);
               heldObject[h] = true;
-              if (showing) { 
+              if (showing) {
                 currentHand = null;
                 ToggleUI();
               }
@@ -357,6 +360,45 @@ public class UIController : MonoBehaviour {
         downCounter = 0;
         changed = false;
       }
+    }
+  }
+  
+  public void UpdateIsoSign(MeshMaker.Model model) {
+    if (model == null) {
+      isoSigns[0].SetActive(false);
+      isoSigns[1].SetActive(false);
+      return;
+    }
+    for (int i = 0; i < isoSigns.Length; i++) {
+      //Activate and Position signs
+      isoSigns[i].SetActive(true);
+      isoSigns[i].transform.position = model.markers[i].transform.position;
+      
+      //Calculate distance and update text      
+      // float dist = Vector3.Distance(fr.isoCenter.transform.position,model.markers[i].transform.position);
+      float dist = 0;
+      if (i == 0) {
+        dist = Vector2.Distance(new Vector2(fr.isoCenter.transform.position.x, fr.isoCenter.transform.position.z),
+          new Vector2(model.markers[i].transform.position.x, model.markers[i].transform.position.z));
+      } else {
+        dist = Vector2.Distance(new Vector2(fr.isoCenter.transform.position.x, fr.isoCenter.transform.position.y),
+          new Vector2(model.markers[i].transform.position.x, model.markers[i].transform.position.y));
+      }
+      // float dist = Vector2.Distance(fr.isoCenter.transform.position,model.markers[i].transform.position);
+      string distText = "";
+      //Using 1 Unity unit <=> 1 meter
+      if (dist > 0.2f) {
+        distText = dist.ToString("0.00") + "m";
+      } else if (dist > 0.0099f) {
+        distText = (dist*100).ToString("0.00") + "cm";
+      } else if (dist > 0.001f) {
+        distText = (dist*1000).ToString("0.00") + "mm";
+      } else {
+        distText = "< 1mm";
+      }
+      
+      //0 - Pivot, 0 - Canvas, 0 - Panel, 1 - Dist Test
+      isoSigns[i].transform.GetChild(0).GetChild(0).GetChild(0).GetChild(1).GetComponent<Text>().text = distText;
     }
   }
 
@@ -478,34 +520,34 @@ public class UIController : MonoBehaviour {
       }
     }
 
-    
+
     for (int i = 0; i < player.hands.Length; i++) {
       if (player.hands[i] == null || player.hands[i].controller == null) { continue; }
       //Check highlight is set
       if (controllerHighlights[i] == null) {
         controllerHighlights[i] = player.hands[i].gameObject.GetComponentInChildren<ControllerHoverHighlight>();
       }
-      
+
       if (controllerHighlights[i] == null) { continue; }
-      
-      
+
+
       if (heldObject[i]) {
         //Holding an object => green
         controllerHighlights[i].ShowHighlight(true);
         if (grabHint[i]) {
           ControllerButtonHints.HideTextHint(player.hands[i], Valve.VR.EVRButtonId.k_EButton_SteamVR_Trigger);
           grabHint[i] = false;
-        }        
+        }
       } else if (player.hands[i].hoveringInteractable != null && player.hands[i] != currentHand) {
         if (!grabHint[i]) {
           ControllerButtonHints.ShowTextHint(player.hands[i], Valve.VR.EVRButtonId.k_EButton_SteamVR_Trigger, "Grab: " + player.hands[i].hoveringInteractable.name);
           grabHint[i] = true;
         }
         //Hovering over an object => yellow
-        controllerHighlights[i].ShowHighlight(false);        
+        controllerHighlights[i].ShowHighlight(false);
       } else {
         //Nothing happening => hide
-        controllerHighlights[i].HideHighlight();        
+        controllerHighlights[i].HideHighlight();
         if (grabHint[i]) {
           ControllerButtonHints.HideTextHint(player.hands[i], Valve.VR.EVRButtonId.k_EButton_SteamVR_Trigger);
           grabHint[i] = false;
@@ -627,7 +669,9 @@ public class UIController : MonoBehaviour {
     }
 
     showing = !showing;
-    menuIndicator.SetActive(showing);
+    if (menuIndicator.transform.parent) {
+      menuIndicator.SetActive(showing);
+    }
     // if (showing) {
     SetTouchpadIndicator(0);
     // }
@@ -820,7 +864,7 @@ public class UIController : MonoBehaviour {
 
   =================================================================================**/
   void VisibilitySliders(int idx, float amt) {
-    amt = (amt / 255);
+    amt = (amt / 51);
     //Adjust idx based on expanded panels
     int idx2 = 2;
     for (int i = 0; i < visControls.Count; i++) {
@@ -828,7 +872,28 @@ public class UIController : MonoBehaviour {
       if (visControls[i].open) {
         if (idx2 + visControls[i].mats.Count >= idx) {
           Material m = visControls[i].mats[idx - idx2];
-          m.color = new Color(m.color.r,m.color.g,m.color.b,amt);
+          Transform top = visControls[i].models[idx - idx2].transform;
+
+          for (int j = 0; j < top.childCount; j++) {
+            top.GetChild(j).gameObject.SetActive(true);
+          }
+
+          if (amt > 0.95f) {
+            for (int j = 0; j < top.childCount; j++) {
+              MeshRenderer mr = top.GetChild(j).GetComponent<MeshRenderer>();
+              if (mr) { mr.material = visControls[i].altMats[idx - idx2]; }
+            }
+          } else if (amt < 0.05f) {
+            for (int j = 0; j < top.childCount; j++) {
+              top.GetChild(j).gameObject.SetActive(false);
+            }
+          } else {
+            for (int j = 0; j < top.childCount; j++) {
+              MeshRenderer mr = top.GetChild(j).GetComponent<MeshRenderer>();
+              if (mr) { mr.material = visControls[i].mats[idx - idx2]; }
+            }
+            m.color = new Color(m.color.r,m.color.g,m.color.b,amt);
+          }
           return;
         }
         idx2+= visControls[i].mats.Count;
@@ -840,11 +905,12 @@ public class UIController : MonoBehaviour {
   void ToggleLasers() {
     lc.ToggleLasers();
     if (laserText.text.EndsWith("F")) {
-      laserText.text = laserText.text.Replace("OFF","ON");
+      laserText.text = laserText.text.Replace("OFF","ON");      
     } else {
       laserText.text = laserText.text.Replace("ON","OFF");
     }
   }
+  
 
   //Toggle X-ray particle effect
   void ToggleBeam() {
@@ -1067,6 +1133,7 @@ public class UIController : MonoBehaviour {
       VisControl vc = new VisControl();
       vc.models = m.models;
       vc.mats = m.mats;
+      vc.altMats = m.altMats;
       GameObject p = CreateGameObject(panel,content);
       vc.text = p.transform.Find("Model Name").GetComponent<Text>();
       vc.text.text = " > " + m.name;
@@ -1188,8 +1255,8 @@ public class UIController : MonoBehaviour {
 
     float height = 20;
     float bStart = -18;
-    float bHeight = 15;    
-    
+    float bHeight = 15;
+
     if (files != null) {
       for (int i = 0; i < files.Count; i++) {
         GameObject b = CreateGameObject(block,p.transform);
