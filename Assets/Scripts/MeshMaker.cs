@@ -408,22 +408,22 @@ public class MeshMaker {
     }
 
     model.isoCenter = isoCenter;
-    if (isoCenter != null) {
-      for (int i = 0; i < gos[0].transform.childCount; i++) {
-        GameObject g = gos[0].transform.GetChild(i).gameObject;
-        g.AddComponent<MeshCollider>();
-      }
+    // if (isoCenter != null) {
+      // for (int i = 0; i < gos[0].transform.childCount; i++) {
+        // GameObject g = gos[0].transform.GetChild(i).gameObject;
+        // g.AddComponent<MeshCollider>();
+      // }
 
 
-      UnityEngine.Debug.DrawLine(isoCenter.transform.position, isoCenter.transform.position + Vector3.right * 10000);
-      UnityEngine.Debug.DrawLine(isoCenter.transform.position, isoCenter.transform.position - Vector3.up * 10000);
+      // UnityEngine.Debug.DrawLine(isoCenter.transform.position, isoCenter.transform.position + Vector3.right * 10000);
+      // UnityEngine.Debug.DrawLine(isoCenter.transform.position, isoCenter.transform.position - Vector3.up * 10000);
 
       // UnityEngine.Debug.LogError("RayFired: " + isoCenter.transform.position + ", b: " + b);
 
 
 
 
-    }
+    // }
 
 
     model.sliceData = modelData[0].sliceData;
@@ -440,6 +440,7 @@ public class MeshMaker {
     // FileReader.printStopwatch(sw, "CreateModel: ");
     return model;
   }
+  
 
   public static void AlignMeshes(Transform mid) {
     //Center objects
@@ -511,14 +512,17 @@ public class MeshMaker {
   }
 
   public static GameObject[] CreateMarkers(Transform top, GameObject isoCenter) {
-    RaycastHit hit, hit2;
+    RaycastHit hit, hit2, hit3, hit4;
     int layer = LayerMask.GetMask("Models");
-    float dist = .4f;
-    Vector3 start = isoCenter.transform.position;
+    float dist = 2f;
+    Vector3 start = new Vector3(isoCenter.transform.position.x,isoCenter.transform.position.y,isoCenter.transform.position.z/((float)zScale));
+    
     Vector3 bDir = isoCenter.transform.up;
     Vector3 cDir = isoCenter.transform.right;
     bool b = Physics.Raycast(start - bDir * dist, bDir, out hit, dist, layer);
     bool c = Physics.Raycast(start - cDir * dist, cDir, out hit2, dist, layer);
+    // bool b2 = Physics.Raycast(start + bDir * dist, -bDir, out hit3, dist, layer);
+    // bool c2 = Physics.Raycast(start + cDir * dist, -cDir, out hit4, dist, layer);
     UnityEngine.Debug.Log("ic: " + isoCenter.transform.position);
 
 
@@ -530,6 +534,19 @@ public class MeshMaker {
     cCube.transform.localScale = (new Vector3(.01f,.01f,.01f));
     bCube.transform.parent = top;
     cCube.transform.parent = top;
+    
+    // GameObject b2Cube = new GameObject("b2Cube");
+    // GameObject c2Cube = new GameObject("c2Cube");
+    // b2Cube.transform.position = hit3.point;
+    // c2Cube.transform.position = hit4.point;
+    // b2Cube.transform.localScale = (new Vector3(.01f,.01f,.01f));
+    // c2Cube.transform.localScale = (new Vector3(.01f,.01f,.01f));
+    // b2Cube.transform.parent = top;
+    // c2Cube.transform.parent = top;
+    
+    // UnityEngine.Debug.Log("bDif: " + ((b2Cube.transform.position.y - bCube.transform.position.y)*100));
+    // UnityEngine.Debug.Log("cDif: " + ((c2Cube.transform.position.x - bCube.transform.position.x)*100));
+    
 
     for (int i = 0; i < top.GetChild(0).childCount; i++) {
       GameObject.Destroy(top.GetChild(0).GetChild(i).GetComponent<MeshCollider>());
@@ -782,7 +799,7 @@ public class MeshMaker {
   }
 
   //Bresenham's 2D line algorithm, taken from Wikipedia
-  static List<Vector3> VoxelLine(Vector3 a, Vector3 b, int z) {
+  public static List<Vector3> VoxelLine(Vector3 a, Vector3 b, int z) {
     //For simplicity round points to nearest integer
     Vector3 v0 = new Vector3(Mathf.Round(a.x), Mathf.Round(a.y), z);
     Vector3 v1 = new Vector3(Mathf.Round(b.x), Mathf.Round(b.y), z);

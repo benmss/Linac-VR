@@ -9,7 +9,7 @@ public class ViewStarter : MonoBehaviour {
 	// Use this for initialization
 	void Start () {
 		if (player) {
-      player.transform.rotation = transform.rotation;
+      // player.transform.rotation = transform.rotation;
     }
 	}
 	

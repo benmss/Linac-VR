@@ -2,7 +2,6 @@
 
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
 using System.Threading;
 using System.IO;
 using System;
@@ -64,6 +63,9 @@ public class FileReader : MonoBehaviour {
   public int preloadModels = 1;
   public string preloadModelName = "LUNG DICOM DATA";
   public GameObject isoCenter;
+  public float playerYMod = -0.55f;
+  
+  GameObject playerGo;
 
   //Could save previously found files in the config file
   // static List<LoadableFile> loadableFilesFromConfig;
@@ -78,6 +80,10 @@ public class FileReader : MonoBehaviour {
   bool loadingModelChange = false;
   string loadingModelName = "";
   MeshMaker.Model lastModel;
+  MeshMaker.Model lastModelForColliders;
+  int lastModelForCollidersCounter = 0;
+  int antiBakeCounter = 0;
+  int antiBakeMax = 10;
 
   public class LoadableFile {
     public string folderName;
@@ -246,6 +252,7 @@ public class FileReader : MonoBehaviour {
     oc = GameObject.Find("Object Controller").GetComponent<ObjectController>();
     uic = GameObject.Find("UI Controller").GetComponent<UIController>();
     // lc = GameObject.Find("Laser Controller").GetComponent<LaserController>();
+    playerGo = GameObject.Find("Player");
 
     //Look for RT Struct files on a separate thread
     Thread t = new Thread(() => {
@@ -357,7 +364,15 @@ public class FileReader : MonoBehaviour {
     }
   }
 
-
+  void LateUpdate() {
+    if (playerGo) {
+      if (playerGo.transform.position.y != playerYMod) {
+        playerGo.transform.position = new Vector3(playerGo.transform.position.x, playerYMod, playerGo.transform.position.z);
+      }
+    }
+  }
+  
+  
 	/** ========================================================================
 
     Update is used primarily to trigger the next step of the model creation
@@ -376,6 +391,8 @@ public class FileReader : MonoBehaviour {
     // if (!filesLoadedFromConfig && loadableFilesFromConfig != null) {
       // filesLoadedFromConfig = true;
     // }
+    
+    
 
     if (!filesLoadedFromScan && loadableFilesFromScan != null) {
       uic.UpdateUI();
@@ -411,13 +428,14 @@ public class FileReader : MonoBehaviour {
       // } else {
         // t = bed.transform;
       // }
+      
       MeshMaker.ScaleModel(rotate,t,models[rotate.gameObject.name].dimensions[0],models[rotate.gameObject.name].isoCenter);
       lastModel = models[rotate.gameObject.name];
       rotate = null;
     }
 
     //Model Loading Queue
-    if (!loadingModel && loadQueue.Count > 0) {
+    if (!loadingModel && loadQueue.Count > 0 && !rotate) {
       loadingModel = true;
       loadingModelDone = false;
       loadingModelChange = false;
@@ -444,27 +462,74 @@ public class FileReader : MonoBehaviour {
     }
 
     //Model Data has been created, turn into GameObjects with Meshes
-    if (FileReader.modelData != null) {
-      Stopwatch sw = new Stopwatch();
-      sw.Start();
+    if (FileReader.modelData != null && lastModelForColliders == null) {
+      // Stopwatch sw = new Stopwatch();
+      // sw.Start();
       List<MeshMaker.ModelData> mdl = FileReader.modelData;
       FileReader.modelData = null;
       MeshMaker.Model m = MeshMaker.CreateModel(mdl,mdl[0].topName);
 
       models[m.name] = m;
       modelNames.Add(m.name);
-      MeshMaker.FixPositions(m.dimensions,m.top);
-      rotate = m.top.transform;
-      uic.UpdateUI();
-      // print("Slice");
-      // ShowSlice(m.name,0,70);
-      sw.Stop();
-      printStopwatch(sw, "Update Model: ");
+      lastModelForColliders = m;
+      m.top.SetActive(false);
+      // m.top.transform.position = new Vector3(50000,50000,50000);
+      // for (int i = 0; i < m.top.transform.GetChild(0).childCount; i++) {
+        // m.top.transform.GetChild(0).GetChild(i).gameObject.SetActive(false);
+      // }
+      
+    }
+    
+    
+	}
+  
+  void FixedUpdate() {
+    if (lastModelForColliders != null) {  
+      int inc = 5;
+      bool b = true;
+      // print("LastIso: " + lastModelForColliders.isoCenter);
+      // if (antiBakeCounter > 0) {
+        // antiBakeCounter--;
+        // return;
+      // }
+      
+      if (lastModelForColliders.isoCenter != null) {
+        b = AddColliders(lastModelForColliders, lastModelForCollidersCounter, inc);
+        antiBakeCounter = antiBakeMax;
+        lastModelForCollidersCounter += inc;
+      }
+        
+      if (!b) { return; }
+      lastModelForColliders.top.SetActive(true);
+      // antiBakeCounter = 0;
+      // UnityEngine.Debug.LogError("ISO TEST");
+      // return;
+      MeshMaker.FixPositions(lastModelForColliders.dimensions,lastModelForColliders.top);
+      rotate = lastModelForColliders.top.transform;
+      uic.UpdateUI();      
+      // sw.Stop();
+      // printStopwatch(sw, "Update Model: ");
       loadingModelName = "";
       loadingModel = false;
       loadingModelChange = true;
+      lastModelForColliders = null;
+      lastModelForCollidersCounter = 0;
+      // UnityEngine.Debug.LogError("ISO TEST");
     }
-	}
+  }
+  
+  public bool AddColliders(MeshMaker.Model model, int start, int inc) {
+      int count = 0;
+      for (int i = start; i < model.models[0].transform.childCount; i++) {
+        // print("Adding collider to : " + model.models[0].transform.GetChild(i).name);
+        GameObject g = model.models[0].transform.GetChild(i).gameObject;
+        g.SetActive(true);
+        g.AddComponent<MeshCollider>();
+        count++;
+        if (count == inc) { return false; }
+      }
+      return true;
+  }
 
 
   //Helper method for stopwatches, can be disabled by static global

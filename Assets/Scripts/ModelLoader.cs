@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+﻿
 using System.Collections.Generic;
 using System.Collections;
 using System.Diagnostics;
@@ -355,21 +355,162 @@ public class ModelLoader {
     }
 
 
-
+    bool isoFound = false;
+    int isoIdx = 0;
     for (int i = 0; i < modelData.Count; i++) {
       string s = "Unknown " + i;
       if (nameList.ContainsKey(structNumbers[i])) {
         s = nameList[structNumbers[i]];
       }
       modelData[i].name = s;
+      string nameLower = s.ToLower();
+      if (modelData[i].point && !isoFound) {
+        if (nameLower.Contains("isocenter") || nameLower.Contains("izocenter") ||
+              nameLower.Contains("iso center") || nameLower.Contains("izo center") ||
+              nameLower.Contains("isocentre") || nameLower.Contains("izocentre") ||
+              nameLower.Contains("iso centre") || nameLower.Contains("izo centre")) {
+          isoIdx = i;
+          isoFound = true;
+        }
+      }
     }
-
-
+    
     //Apply z scaling
     int zScale = (int)Mathf.Round(Mathf.Abs(zH2 - zH1));
     float zScaleF = 1/(float)zScale;
     MeshMaker.zScale = zScale;
     print("zScale: " + zScale + ", " + zScaleF + " zH1: " + zH1);
+    
+    
+    //An alternative to using the expensive collider method of finding mesh surface points for markers
+    //This method is much faster but needs more work to function correctly.
+    //Currently the found points do not seem to match the raycast/collider version at all, nor do they seem
+    //be within the mesh
+    //Comparing to the rotated and scaled mesh might be an issue
+    //#TODO
+    //Issues:
+    //The position of the cubes that are in line with the isocenter in the original data do not match
+    //up with the points found by raycasting the final mesh.
+    
+    /* if (isoFound) {
+      Vector3 isoPoint = modelData[isoIdx].pointPosition;
+      print("IsoPoint: " + modelData[isoIdx].pointPosition + ", md0.z: " + modelData[0].data[40].Count);      
+      int zCount = modelData[0].data.Count;
+      int isoZ = (int)(isoPoint.z);
+      float pxMin = isoPoint.x;
+      float pyMin = isoPoint.y;
+      bool zFound = false;
+      int zIdx = 0;
+      for (int i = 0; i < modelData[0].data.Count && !zFound; i++) {
+        int sCount = modelData[0].data[i].Count;
+        if (sCount > 0) {
+          for (int j = 0; j < sCount && !zFound; j++) {
+            if (modelData[0].data[i][j].Count > 0) {
+              for (int k = 0; k < modelData[0].data[i][j].Count; k++) {
+                if (Mathf.Round(modelData[0].data[i][j][k].z) == isoPoint.z) {
+                  zIdx = i;
+                  zFound = true;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      GameObject ttp = new GameObject("Cubes");
+      
+      int zIdx2 = zIdx;
+      for (zIdx = 0; zIdx < modelData[0].data.Count; zIdx++) {
+        
+        int zv = -9000;
+        pxMin = isoPoint.x;
+        pyMin = isoPoint.y;
+        float pxMax = isoPoint.x;
+        float pyMax = isoPoint.y;
+        HashSet<Vector3> zPoints = new HashSet<Vector3>();
+        for (int s = 0; s < modelData[0].data[zIdx].Count; s++) {
+            for (int p = 0; p < modelData[0].data[zIdx][s].Count; p++) {            
+            Vector3 v1 = modelData[0].data[zIdx][s][p];
+            if (zv == -9000) { zv = (int)Mathf.Round(v1.z); }
+            Vector3 v2;            
+            if (p < modelData[0].data[zIdx][s].Count - 1) {
+              v2 = modelData[0].data[zIdx][s][p+1];
+            } else {
+              v2 = modelData[0].data[zIdx][s][0];
+            }
+
+            //Bresenham's Algorithm
+            List<Vector3> vox = MeshMaker.VoxelLine(v1,v2,zv);
+            foreach (Vector3 v in vox) {
+              zPoints.Add(v);
+            }
+          }
+        }
+      
+        foreach (Vector3 pv in zPoints) {
+          
+          //Decrease y from -40 to find bCube point
+          //Decrease x from -100 to find cCube point
+          //Iso: -100, -40, 40
+          //b: -100, -70, 40
+          //c: -138, -40, 40
+          
+          if (zIdx == zIdx2) {
+            GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cube.transform.position = pv;
+            cube.name = pv.ToString();
+            cube.transform.parent = ttp.transform;
+          }
+          
+          // if (modelData[0].data[i][j][k] == isoPoint) { bv = true; }
+          // float px = Mathf.Round(pv.x);
+          // float py = Mathf.Round(pv.y);
+          // if (Mathf.Abs(px - isoPoint.x) < 2) {
+          // if (px == isoPoint.x) {
+            // print("x - ijk: " + i + ", " + j + ", " + k + " | " + pv);
+          // if (zIdx == zIdx2) {
+          if (pv.x <= isoPoint.x && pv.y == isoPoint.y) {
+            pxMin = Mathf.Min(pxMin,pv.x);
+          }
+          if (pv.x >= isoPoint.x && pv.y == isoPoint.y) {
+            pxMax = Mathf.Max(pxMax,pv.x);
+          }
+            // }
+            // if (Mathf.Abs(py - isoPoint.y) < 2) {
+            // if (py < isoPoint.y + 2 || py > isoPoint.y - 2) {
+            // if (py == isoPoint.y || py == isoPoint.y + 1 ||) {
+              // print("y - ijk: " + i + ", " + j + ", " + k + " | " + pv);
+          if (pv.y <= isoPoint.y && pv.x == isoPoint.x) {
+            pyMin = Mathf.Min(pyMin,pv.y);
+          }
+          if (pv.y >= isoPoint.y && pv.x == isoPoint.x) {
+            pyMax = Mathf.Max(pyMax,pv.y);
+          }
+          // }
+          
+        }
+      
+                
+        // if (zIdx == zIdx2) {
+          print("zIdx " + zIdx + ", z: " + zv + ", pxMin: " + pxMin + ", pyMin: " + pyMin + ", pxMax: " + pxMax + ", pyMax: " + pyMax + ", width: " + (pxMax - pxMin) + ", height: " + (pyMax - pyMin));
+          // UnityEngine.Debug.DrawLine(new Vector3(pxMin, isoPoint.y, isoPoint.z), isoPoint, Color.cyan, 20);
+          // UnityEngine.Debug.DrawLine(new Vector3(isoPoint.x, pyMin, isoPoint.z), isoPoint, Color.magenta, 20);
+        // }
+      }
+      // UnityEngine.Debug.LogError("Iso Test");
+      // print("ModelData z: " + modelData[0].data.Count);
+      // for (int i = 0; i < modelData[0].data.Count; i++) {
+        // print("z: " + modelData[0].data[i][0][0].z);
+      // }
+      // return;
+    } */
+    
+    
+    
+
+
+    
 
 
     sw.Stop();

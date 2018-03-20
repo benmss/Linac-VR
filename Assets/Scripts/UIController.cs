@@ -578,7 +578,7 @@ public class UIController : MonoBehaviour {
     } else if (currentPanel == 2) {
       actions[currentPanel][idx](0);
     } else if (currentPanel >= 3) {
-      // // print("Trigger " + idx + ": " + actions[currentPanel][idx]);
+      // print("Trigger " + idx + ": " + actions[currentPanel][idx]);
       actions[currentPanel][idx](idx);
     }
   }

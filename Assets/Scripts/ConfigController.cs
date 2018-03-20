@@ -45,13 +45,14 @@ public class ConfigController : MonoBehaviour {
       sw.WriteLine();
 
       sw.WriteLine("# FileReader");
-      sw.WriteLine("FileReader.pathToData = '../Model Data/'");
+      sw.WriteLine("FileReader.pathToData = ../Model Data/");
       sw.WriteLine("FileReader.drawMesh = true");
       sw.WriteLine("FileReader.meshRangeMin = 0");
       sw.WriteLine("FileReader.meshRangeMax = 50");
       sw.WriteLine("FileReader.meshRangeOverride = -1");
       sw.WriteLine("FileReader.preloadModels = 1");
       sw.WriteLine("FileReader.preloadModelName = LUNG DICOM DATA");
+      sw.WriteLine("FileReader.playerYPos = 0f");
       sw.WriteLine();
 
       sw.WriteLine("# UIController");
@@ -127,6 +128,14 @@ public class ConfigController : MonoBehaviour {
             value = i;
           } catch (Exception e) {}
         }
+        
+        if (value == null) {
+          try { //Float
+            float i = float.Parse(split2[1]);
+            value = i;
+          } catch (Exception e) {}
+        }
+        
 
         if (value == null) {
           //String

@@ -151,6 +151,8 @@ public class ObjectController : MonoBehaviour {
     }
   }
 
+  
+  
   //Perform fullness check when removing an object from UI
   public void RemoveObject(GameObject g) {
     if (currentObject != g) { return; }
@@ -169,7 +171,11 @@ public class ObjectController : MonoBehaviour {
     if (currentObject != null) { RemoveObject(currentObject); }
     currentObject = g;
     Rigidbody rb = g.GetComponent<Rigidbody>();
-    if (rb) { GameObject.Destroy(rb); }
+    
+    if (rb) { 
+      GameObject.Destroy(rb);
+      rb.useGravity = false;
+    }
     
     //Position object in center of bed
     Bounds bounds = g.GetComponent<BoxCollider>().bounds;
